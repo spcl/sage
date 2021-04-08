@@ -184,6 +184,14 @@ endif
 	@rm -f .config_* $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.*
 	@touch .config_$(Build_Mode)_$(SGX_ARCH)
 
+######## CUDA Objects ########
+cuda_flags := -L/lib/x86_64-linux-gnu -lcudart -lcudadevrt
+cuda_objects := compile-test/test.o
+
+compile-test/test.o: compile-test/test.cu
+	@nvcc -c $< -o $@
+	@echo "NVCC   <=  $<"
+
 ######## App Objects ########
 
 App/Enclave_u.h: $(SGX_EDGER8R) Enclave/Enclave.edl
@@ -200,8 +208,8 @@ App/%.o: App/%.cpp  App/Enclave_u.h
 	@$(CXX) $(SGX_COMMON_CXXFLAGS) $(App_Cpp_Flags) -c $< -o $@
 	@echo "CXX  <=  $<"
 
-$(App_Name): App/Enclave_u.o $(App_Cpp_Objects)
-	@$(CXX) $^ -o $@ $(App_Link_Flags)
+$(App_Name): App/Enclave_u.o $(App_Cpp_Objects) $(cuda_objects)
+	@$(CXX) $^ -o $@ $(App_Link_Flags) $(cuda_flags)
 	@echo "LINK =>  $@"
 
 ######## Enclave Objects ########
@@ -231,4 +239,4 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 .PHONY: clean
 
 clean:
-	@rm -f .config_* $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.*
+	@rm -f .config_* $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.* $(cuda_objects)
