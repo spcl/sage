@@ -51,7 +51,7 @@ sgx_status_t init_encl()
   return SGX_SUCCESS;
 }
 
-sgx_status_t generate_nonce(unsigned int num_blocks)
+sgx_status_t generate_nonce(unsigned int num_blocks, uint8_t* out_buf, size_t len)
 {
   sgx_status_t ret_status;
 
@@ -60,7 +60,7 @@ sgx_status_t generate_nonce(unsigned int num_blocks)
   size_t buffer_len = num_blocks*NONCE_SIZE;
 
   uint8_t* in_buf = (uint8_t*)calloc(num_blocks, NONCE_SIZE);
-  uint8_t* out_buf = (uint8_t*)calloc(num_blocks, NONCE_SIZE);
+  //uint8_t* out_buf = (uint8_t*)calloc(num_blocks, NONCE_SIZE);
 
   // use AES in CTR mode as a PRNG
   ret_status = sgx_aes_ctr_encrypt(&prng_key, in_buf, buffer_len, prng_iv, 8, out_buf);
@@ -70,6 +70,6 @@ sgx_status_t generate_nonce(unsigned int num_blocks)
   printf(" done!\n");
 
   free(in_buf);
-  free(out_buf);
+  //free(out_buf);
   return SGX_SUCCESS;
 }

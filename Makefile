@@ -186,11 +186,24 @@ endif
 
 ######## CUDA Objects ########
 cuda_flags := -L/lib/x86_64-linux-gnu -lcudart -lcudadevrt
-cuda_objects := compile-test/test.o
+cuda_objects := compile-test/test.o checksum/checksum.o checksum/checksum_function.bin
+cap = 75
 
 compile-test/test.o: compile-test/test.cu
 	@nvcc -c $< -o $@
 	@echo "NVCC   <=  $<"
+
+checksum/checksum.o: checksum/checksum.cu
+	@nvcc -o $@ -rdc=true -lineinfo -arch=sm_${cap} -lcuda -c $<
+	@echo "NVCC   <=  $<"
+
+checksum/checksum.cubin: checksum/checksum.o
+	mv $$(cuobjdump checksum/checksum.o -xelf all | awk '{ print $$5; }') checksum/checksum.cubin
+	@echo "DUMP   <=  $<"
+
+checksum/checksum_function.bin: checksum/checksum.cubin
+	./checksum/extract_section.sh checksum/checksum.cubin checksum/checksum_function.bin .text._Z17checksum_functionPjS_S_
+	@echo "EXTRACT   <=  $<"
 
 ######## App Objects ########
 
@@ -239,4 +252,4 @@ $(Signed_Enclave_Name): $(Enclave_Name)
 .PHONY: clean
 
 clean:
-	@rm -f .config_* $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.* $(cuda_objects)
+	@rm -f .config_* $(App_Name) $(Enclave_Name) $(Signed_Enclave_Name) $(App_Cpp_Objects) App/Enclave_u.* $(Enclave_Cpp_Objects) Enclave/Enclave_t.* $(cuda_objects) checksum/*.cubin

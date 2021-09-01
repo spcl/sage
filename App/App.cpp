@@ -161,7 +161,13 @@ int SGX_CDECL main(int argc, char *argv[])
     sgx_status_t sgx_status;
 
     ret_status = init_encl(global_eid, &sgx_status);
-    ret_status = generate_nonce(global_eid, &sgx_status, 16);
+
+    int num_blocks = 16;
+    int nonce_size = 16;
+    uint8_t* out_buf = (uint8_t*)calloc(num_blocks, nonce_size);
+    ret_status = generate_nonce(global_eid, &sgx_status, num_blocks, out_buf, num_blocks*nonce_size);
+
+    printf("asdfasdf\n");
 
     /* CUDA test */
     const int arraySize = 5;

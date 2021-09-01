@@ -52,7 +52,7 @@ enclave {
     from "TrustedLibrary/Thread.edl" import *;
 
     trusted{
-      public sgx_status_t generate_nonce(unsigned int num_blocks);
+      public sgx_status_t generate_nonce(unsigned int num_blocks, [out, count=len]uint8_t* out_buf, size_t len);
       public sgx_status_t init_encl(void);
     };
     /*

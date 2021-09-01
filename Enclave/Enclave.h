@@ -41,7 +41,7 @@ extern "C" {
 #endif
 
 int printf(const char* fmt, ...);
-sgx_status_t generate_nonce(unsigned int num_blocks);
+sgx_status_t generate_nonce(unsigned int num_blocks, uint8_t* out_buf, size_t len);
 sgx_status_t init_encl(void);
 
 #if defined(__cplusplus)
