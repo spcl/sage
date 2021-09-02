@@ -10,6 +10,7 @@
 #include "App.h"
 #include "Enclave_u.h"
 #include "../compile-test/test.hpp"
+#include "../checksum/runner.hpp"
 
 /* Global EID shared by multiple threads */
 sgx_enclave_id_t global_eid = 0;
@@ -168,6 +169,7 @@ int SGX_CDECL main(int argc, char *argv[])
     ret_status = generate_nonce(global_eid, &sgx_status, num_blocks, out_buf, num_blocks*nonce_size);
 
     printf("asdfasdf\n");
+    checksum_runner();
 
     /* CUDA test */
     const int arraySize = 5;

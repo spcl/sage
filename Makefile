@@ -185,25 +185,26 @@ endif
 	@touch .config_$(Build_Mode)_$(SGX_ARCH)
 
 ######## CUDA Objects ########
-cuda_flags := -L/lib/x86_64-linux-gnu -lcudart -lcudadevrt
-cuda_objects := compile-test/test.o checksum/checksum.o checksum/checksum_function.bin
+cuda_flags := -L/lib/x86_64-linux-gnu -lcudart -lcudadevrt -lcuda
+#cuda_objects := compile-test/test.o checksum/checksum.o checksum/checksum_function.bin
+cuda_objects := compile-test/test.o checksum/checksum_runner.o
 cap = 75
 
 compile-test/test.o: compile-test/test.cu
 	@nvcc -c $< -o $@
 	@echo "NVCC   <=  $<"
 
-checksum/checksum.o: checksum/checksum.cu
-	@nvcc -o $@ -rdc=true -lineinfo -arch=sm_${cap} -lcuda -c $<
+checksum/checksum.cubin: checksum/checksum.cu
+	@nvcc $< -cubin -dlink -arch=sm_75 -G -o $@
 	@echo "NVCC   <=  $<"
-
-checksum/checksum.cubin: checksum/checksum.o
-	mv $$(cuobjdump checksum/checksum.o -xelf all | awk '{ print $$5; }') checksum/checksum.cubin
-	@echo "DUMP   <=  $<"
 
 checksum/checksum_function.bin: checksum/checksum.cubin
 	./checksum/extract_section.sh checksum/checksum.cubin checksum/checksum_function.bin .text._Z17checksum_functionPjS_S_
 	@echo "EXTRACT   <=  $<"
+
+checksum/checksum_runner.o: checksum/runner.cpp checksum/checksum_function.bin
+	@nvcc  -c $< -o $@
+	@echo "NVCC   <=  $<"
 
 ######## App Objects ########
 

@@ -392,8 +392,8 @@ void baseline(uint32_t* nonce, uint32_t* result, uint32_t* data_ptr, uint64_t* c
     *clocks = clock64() - c;
 }
 
-// int main(int argc, char** argv) {
-void init_checksum() {
+int main(int argc, char** argv) {
+//void init_checksum() {
     std::string kernel_name = "checksum_kernel_from_data";
 
 
