@@ -1,7 +1,10 @@
-#include <cuda.h>
+// stdlib
 #include <cstdio>
 #include <vector>
 #include <fstream>
+
+// CUDA related
+#include <cuda.h>
 #include <cuda_runtime.h>
 
 #define CUDA_DRV_CHECK(e) do {\
@@ -18,7 +21,13 @@
     }\
 } while (0)
 
+size_t sharedMemoryPerBlockSize(int blockSize) {
+    return 0;
+}
+
 void checksum_runner() {
+    printf("[G] Running checksum...\n");
+
     CUDA_DRV_CHECK(cuInit(0));
 
     CUcontext cuContext;
@@ -34,13 +43,22 @@ void checksum_runner() {
         checksum_code.push_back(c);
     }
 
-    printf("Checksum runner!\n");
+    std::string kernel_name = "checksum_kernel_from_data";
+    printf("kernel_name = %s\n", kernel_name.c_str());
+    CUfunction checksum_kernel;
+    CUDA_DRV_CHECK(cuModuleGetFunction(&checksum_kernel, cuModule, kernel_name.c_str())); // use checksum function loaded from file
 
-    // CUfunction mykernel;
-    // CUDA_DRV_CHECK(cuModuleGetFunction(&mykernel, cuModule, "mykernel"));
+    int multiProcessorCount = -1;
+    CUDA_DRV_CHECK(cuDeviceGetAttribute(&multiProcessorCount, CU_DEVICE_ATTRIBUTE_MULTIPROCESSOR_COUNT, /* device */ 0));
+    int maxRegistersPerMultiprocessor = -1;
+    CUDA_DRV_CHECK(cuDeviceGetAttribute(&maxRegistersPerMultiprocessor, CU_DEVICE_ATTRIBUTE_MAX_REGISTERS_PER_MULTIPROCESSOR, /* device */ 0));
 
-    // void *args[] = {};
-    // CUDA_DRV_CHECK(cuLaunchKernel(mykernel, 1, 1, 1, 1, 1, 1, 0, nullptr, args, nullptr));
+    int blockSize = -1;
+    int numBlocks = -1;
+    CUDA_DRV_CHECK(cuOccupancyMaxPotentialBlockSize(&numBlocks, &blockSize, checksum_kernel, sharedMemoryPerBlockSize, /* dynamicSMemSize */ 0, /* blockSizeLimit */ 0));
+
+    printf("Suggested number of blocks: %d\n", numBlocks);
+    printf("Suggested number of threads per block: %d\n", blockSize);
 
     CUDA_DRV_CHECK(cuCtxSynchronize());
 

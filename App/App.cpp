@@ -168,10 +168,11 @@ int SGX_CDECL main(int argc, char *argv[])
     uint8_t* out_buf = (uint8_t*)calloc(num_blocks, nonce_size);
     ret_status = generate_nonce(global_eid, &sgx_status, num_blocks, out_buf, num_blocks*nonce_size);
 
-    printf("asdfasdf\n");
+    printf("[A] Launching checksum execution\n");
     checksum_runner();
 
     /* CUDA test */
+    printf("[A] Launching CUDA test\n");
     const int arraySize = 5;
     const int a[arraySize] = { 1, 2, 3, 4, 5 };
     const int b[arraySize] = { 10, 20, 30, 40, 50 };
