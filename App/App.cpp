@@ -172,6 +172,7 @@ int SGX_CDECL main(int argc, char *argv[])
     checksum_runner();
 
     /* CUDA test */
+    /*
     printf("[A] Launching CUDA test\n");
     const int arraySize = 5;
     const int a[arraySize] = { 1, 2, 3, 4, 5 };
@@ -182,6 +183,7 @@ int SGX_CDECL main(int argc, char *argv[])
     addWithCuda(c, a, b, arraySize);
     printf("{1,2,3,4,5} + {10,20,30,40,50} = {%d,%d,%d,%d,%d}\n",
         c[0], c[1], c[2], c[3], c[4]);
+    */
 
     /* Utilize edger8r attributes */
     edger8r_array_attributes();
