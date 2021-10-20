@@ -187,7 +187,7 @@ endif
 ######## CUDA Objects ########
 cuda_flags := -L/lib/x86_64-linux-gnu -lcudart -lcudadevrt -lcuda
 #cuda_objects := compile-test/test.o checksum/checksum.o checksum/checksum_function.bin
-cuda_objects := compile-test/test.o checksum/checksum_runner.o
+cuda_objects := compile-test/test.o checksum/checksum_runner.o sage/sage.o
 cap = 75
 
 compile-test/test.o: compile-test/test.cu
@@ -203,6 +203,10 @@ checksum/checksum_function.bin: checksum/checksum.cubin
 	@echo "EXTRACT   <=  $<"
 
 checksum/checksum_runner.o: checksum/runner.cpp checksum/checksum_function.bin
+	@nvcc  -c $< -o $@
+	@echo "NVCC   <=  $<"
+
+sage/sage.o: sage/sage.cu sage/sha256.cu
 	@nvcc  -c $< -o $@
 	@echo "NVCC   <=  $<"
 
