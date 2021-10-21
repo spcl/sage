@@ -1,5 +1,7 @@
 /*
-nvcc -o test sha256_test.cu sha256.cu -arch=sm_50 -lcuda
+nvcc -o test sha256_test.cu sha256.cu -arch=sm_61 -lcuda
+
+sm_50 for GTX750
 */ 
 
 
@@ -30,7 +32,8 @@ char * hash_to_string(unsigned char * buff) {
 }
 
 void sha256_test() {
-    // Source of test vectors: https://www.dlitz.net/crypto/shad256-test-vectors/
+    // Source of test vectors: https://www.di-mgt.com.au/sha_testvectors.html
+    // https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Standards-and-Guidelines/documents/examples/SHA256.pdf
 
     const TestVector_t v1 = {
         "", // empty string
@@ -43,13 +46,13 @@ void sha256_test() {
     };
 
     const TestVector_t v3 = {
-        "de188941a3375d3a8a061e67576e926d",
-        "067c531269735ca7f541fdaca8f0dc76305d3cada140f89372a410fe5eff6e4d"
+        "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq",
+        "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
     };
 
     const TestVector_t v4 = {
-        "de188941a3375d3a8a061e67576e926dc71a7fa3f0cceb97452b4d3227965f9ea8cc75076d9fb9c5417aa5cb30fc22198b34982dbb629e",
-        "038051e9c324393bd1ca1978dd0952c2aa3742ca4f1bd5cd4611cea83892d382"
+        "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu",
+        "cf5b16a778af8380036ce59e7b0492370b249b11e8f07a51afac45037afee9d1"
     };
 
     TestData_t test_vectors = { v1, v2, v3, v4 };
