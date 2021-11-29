@@ -21,4 +21,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#define SHA256_BLOCK_SIZE 32            // SHA256 outputs a 32 byte digest
+
 void cuda_sha256_hash_batch(unsigned char* in, unsigned int inlen, unsigned char* out, unsigned int n_batch);
+__device__ void sha256_hash(unsigned char* in, unsigned int inlen, unsigned char* out);

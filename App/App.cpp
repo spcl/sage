@@ -169,7 +169,7 @@ int SGX_CDECL main(int argc, char *argv[])
     ret_status = generate_nonce(global_eid, &sgx_status, num_blocks, out_buf, num_blocks*nonce_size);
 
     printf("[A] Launching checksum execution\n");
-    checksum_runner();
+    // checksum_runner();
 
     /* CUDA test */
     /*

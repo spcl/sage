@@ -22,11 +22,7 @@
 #include <stdio.h>
 #include <memory.h>
 
-// extern "C" {
-	#include "sha256.cuh"
-// }
-/****************************** MACROS ******************************/
-#define SHA256_BLOCK_SIZE 32            // SHA256 outputs a 32 byte digest
+#include "sha256.cuh"
 
 /**************************** DATA TYPES ****************************/
 
@@ -189,6 +185,13 @@ __global__ void kernel_sha256_hash(unsigned char* indata, unsigned int inlen, un
 	}
 	unsigned char* in = indata + thread * inlen;
 	unsigned char* out = outdata + thread * SHA256_BLOCK_SIZE;
+	CUDA_SHA256_CTX ctx;
+	cuda_sha256_init(&ctx);
+	cuda_sha256_update(&ctx, in, inlen);
+	cuda_sha256_final(&ctx, out);
+}
+
+__device__ void sha256_hash(unsigned char* in, unsigned int inlen, unsigned char* out) {
 	CUDA_SHA256_CTX ctx;
 	cuda_sha256_init(&ctx);
 	cuda_sha256_update(&ctx, in, inlen);

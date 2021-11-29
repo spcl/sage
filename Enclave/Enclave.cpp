@@ -8,14 +8,16 @@
 #include "sgx_trts.h"
 #include "sgx_utils.h"
 
-#define SGX_AES_KEY_SIZE 16
 #define NONCE_SIZE 16
 
 // index of the protocol
 int i = 0;
 
-uint8_t prng_iv[SGX_AES_KEY_SIZE];
+uint8_t prng_iv[SGX_AESCTR_KEY_SIZE];
 sgx_aes_ctr_128bit_key_t prng_key;
+sgx_ecc_state_handle_t ecc_handle;
+sgx_ec256_private_t ecc_private;
+sgx_ec256_public_t ecc_public;
 
 int printf(const char* fmt, ...)
 {
@@ -28,26 +30,52 @@ int printf(const char* fmt, ...)
     return (int)strnlen(buf, BUFSIZ - 1) + 1;
 }
 
+sgx_status_t print_hex(uint8_t *buf, size_t len) {
+    for (int i = 0; i < len; i++)
+    {
+        if (i > 0) printf(":");
+        printf("%02X", buf[i]);
+    }
+    printf("\n");
+}
+
 sgx_status_t init_encl()
 {
   printf("[E] Initialising Enclave ...");
     
   sgx_status_t ret_status;
  
-  // generate a random IV
-  ret_status = sgx_read_rand(prng_iv, SGX_AES_KEY_SIZE);
+  // generate a random IV for PRNG
+  ret_status = sgx_read_rand(prng_iv, SGX_AESCTR_KEY_SIZE);
   if (ret_status != SGX_SUCCESS)
     return ret_status;
 
-  // generate a random AES key
-  ret_status = sgx_read_rand((unsigned char*)&prng_key, SGX_AES_KEY_SIZE);
+  // generate a random AES key for PRNG
+  ret_status = sgx_read_rand((unsigned char*)&prng_key, SGX_AESCTR_KEY_SIZE);
+  if (ret_status != SGX_SUCCESS)
+    return ret_status;
+
+  // generate ECC key pair for SAKE
+  ret_status = sgx_ecc256_open_context(&ecc_handle);
+  if (ret_status != SGX_SUCCESS)
+    return ret_status;
+
+  ret_status = sgx_ecc256_create_key_pair(&ecc_private, &ecc_public, ecc_handle);
   if (ret_status != SGX_SUCCESS)
     return ret_status;
 
   printf(" done!\n");
 
-  printf("[E] prng iv: %u\n", prng_iv);
-  printf("[E] prng key: %u\n", prng_key);
+  printf("[E] prng iv:  ");
+  print_hex(&prng_iv[0], SGX_AESCTR_KEY_SIZE);
+  printf("[E] prng key:  ");
+  print_hex((uint8_t *)&prng_key[0], SGX_AESCTR_KEY_SIZE);
+  printf("[E] ECC pub key:  ");
+  print_hex(&ecc_private.r[0], SGX_ECP256_KEY_SIZE);
+  printf("[E] ECC priv key:  ");
+  print_hex(&ecc_public.gx[0], SGX_ECP256_KEY_SIZE);
+  print_hex(&ecc_public.gy[0], SGX_ECP256_KEY_SIZE);
+
   return SGX_SUCCESS;
 }
 
