@@ -43,6 +43,8 @@
 
 __global__ void sake_test_kernel(Message* msgs) {
     const int tid = threadIdx.x + blockIdx.x * blockDim.x;
+    
+    uint64_t clock_start = clock64();
 
     int curr_id = -1;
     volatile int infinity = 1;
@@ -50,16 +52,19 @@ __global__ void sake_test_kernel(Message* msgs) {
         if(msgs[tid].id != curr_id) {
             msgs[tid].lock.lock();
             curr_id = msgs[tid].id;
-    
+            uint64_t elapsed = clock64() - clock_start;
+
             // TODO: process msg
             msgs[tid].ptr[0] = tid + '0';
     
             msgs[tid].lock.unlock();
 
-            // if (curr_id == 1)
-            //     return;
+            // if (curr_id == 99)
+            //    return;
         }
     }
+
+    
 }
 
 // helper function to transfer the strings to the unified memory used for message passing
@@ -88,13 +93,15 @@ void sake_runner(Message** msgs) {
 
     sake_test_kernel<<<1,1>>>(*msgs);
 
-    CUDA_CHECK(cudaDeviceSynchronize());
+    // CUDA_CHECK(cudaDeviceSynchronize());
 
     // CUDA_CHECK(cudaFreeHost(msgs));
     // CUDA_CHECK(cudaFreeHost(*msg_buf));
 }
 
-// int main() {
-//     sake_runner();
-//     return 0;
-// }
+// nvcc -o test sake.cu sha256.cu -arch=sm_61 -lcuda
+int main() {
+    Message *msgs;
+    sake_runner(&msgs);
+    return 0;
+}
