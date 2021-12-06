@@ -43,21 +43,21 @@
 
 __global__ void sake_test_kernel(Message* msgs) {
     const int tid = threadIdx.x + blockIdx.x * blockDim.x;
-    msgs[tid].ptr[0] = tid + '0';
 
     int curr_id = -1;
-    while(true) { // wait for incoming msgs
+    volatile int infinity = 1;
+    while(infinity) { // wait for incoming msgs
         if(msgs[tid].id != curr_id) {
             msgs[tid].lock.lock();
             curr_id = msgs[tid].id;
     
             // TODO: process msg
-            msgs[tid].ptr[1] = curr_id + '0';
+            msgs[tid].ptr[0] = tid + '0';
     
             msgs[tid].lock.unlock();
 
-            if (curr_id == 1)
-                return;
+            // if (curr_id == 1)
+            //     return;
         }
     }
 }
@@ -73,34 +73,22 @@ void transfer_msg(Message *msg, const char *buf, size_t buf_size) {
     msg->lock.unlock();
 }
 
-void sake_runner(Message *msgs) {
-    printf("[G] Running SAKE protocol...\n");
+void sake_runner(Message** msgs) {
+    printf("[D] Running SAKE protocol...\n");
     
     char* msg_buf;
     CUDA_CHECK(cudaMallocHost(&msg_buf, CHALLENGE_SIZE*NUM_CHALLENGES));
 
     // Message *msgs;
-    CUDA_CHECK(cudaMallocHost(&msgs, sizeof(Message)*NUM_CHALLENGES));
+    CUDA_CHECK(cudaMallocHost(msgs, sizeof(Message)*NUM_CHALLENGES));
     
     // link msgs struct to msg buffer
     for (int i=0; i<NUM_CHALLENGES; i++)
-        msgs[i].ptr = msg_buf+i*CHALLENGE_SIZE;
+        (*msgs)[i].ptr = msg_buf+i*CHALLENGE_SIZE;
 
-    const char test_msg[] = "asdfasdfasdf";
-    // "transfer" msgs
-    transfer_msg(&msgs[0], &test_msg[0], strlen(test_msg));
-    
-    printf("MSG: %s\n", msg_buf);
-    sake_test_kernel<<<1,1>>>(msgs);
-   
-    sleep(1);
-
-    const char test_msg2[] = "hanswurst";
-    transfer_msg(&msgs[0], &test_msg2[0], strlen(test_msg2));
+    sake_test_kernel<<<1,1>>>(*msgs);
 
     CUDA_CHECK(cudaDeviceSynchronize());
-
-    printf("MSG: %s\n", msg_buf);
 
     // CUDA_CHECK(cudaFreeHost(msgs));
     // CUDA_CHECK(cudaFreeHost(*msg_buf));

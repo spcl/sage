@@ -173,6 +173,12 @@ void copy_nonce(Message *msg, const char *buf, size_t buf_size) {
     msg->lock.unlock();
 }
 
+void print_msg(Message* msg) {
+    msg->lock.lock();
+    print_hex((uint8_t*)msg->ptr, msg->size);
+    msg->lock.unlock();
+}
+
 /* Application entry */
 int SGX_CDECL main(int argc, char *argv[])
 {
@@ -211,7 +217,7 @@ int SGX_CDECL main(int argc, char *argv[])
     prev = curr;
 
     Message* msgs;
-    sake_runner(msgs);
+    sake_runner(&msgs);
 
     while(true) {
         clock_gettime(clk_id, &curr);
@@ -223,8 +229,7 @@ int SGX_CDECL main(int argc, char *argv[])
             }
 
             // transfer nonce
-            // memcpy(msg_buf, out_buf, NONCE_SIZE);
-            
+            copy_nonce(&msgs[0], (const char*)out_buf, NONCE_SIZE);
             print_hex(out_buf, NONCE_SIZE);
             prev = curr;
         }
