@@ -10,9 +10,12 @@
 #include "sgx_urts.h"
 #include "App.h"
 #include "Enclave_u.h"
+
 #include "timing.h"
 // #include "../compile-test/test.hpp"
+#include "../common/cuda_mem.cuh"
 #include "../checksum/runner.hpp"
+#include "../sake/sake.hpp"
 
 #define NONCE_SIZE 16
 #define NONCE_INTERVAL 1000000
@@ -161,6 +164,14 @@ void print_hex(uint8_t *buf, size_t len)
     printf("\n");
 }
 
+void copy_nonce(Message *msg, const char *buf, size_t buf_size) {
+    msg->lock.lock();
+    strncpy(msg->ptr, buf, buf_size);
+    msg->ptr[buf_size] = '\0';
+    msg->size = buf_size;
+    msg->id++;
+    msg->lock.unlock();
+}
 
 /* Application entry */
 int SGX_CDECL main(int argc, char *argv[])
@@ -169,7 +180,7 @@ int SGX_CDECL main(int argc, char *argv[])
     (void)(argv);
     /* Initialize the enclave */
     if(initialize_enclave() < 0){
-        printf("[A] Bad things  ...\n");
+        printf("[A] Enclave initialisation failed.\n");
         return -1;
     }
     
@@ -199,14 +210,20 @@ int SGX_CDECL main(int argc, char *argv[])
     clock_gettime(clk_id, &curr);
     prev = curr;
 
+    Message* msgs;
+    sake_runner(msgs);
+
     while(true) {
         clock_gettime(clk_id, &curr);
         if (difftimespec_us(curr, prev) > NONCE_INTERVAL) {
-            ret_status = generate_nonce(global_eid, &sgx_status, num_blocks, out_buf, num_blocks*NONCE_SIZE);
+            ret_status = generate_nonce(global_eid, &sgx_status, num_blocks, out_buf,  num_blocks*NONCE_SIZE);
             if (ret_status != SGX_SUCCESS) {
                 printf("[A] Generating nonce failed.");
                 return -1;
             }
+
+            // transfer nonce
+            // memcpy(msg_buf, out_buf, NONCE_SIZE);
             
             print_hex(out_buf, NONCE_SIZE);
             prev = curr;

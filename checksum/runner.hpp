@@ -1,6 +1,3 @@
-#ifndef __runner_H_
-#define __runner_H_
+#pragma once
 
 void checksum_runner();
-
-#endif

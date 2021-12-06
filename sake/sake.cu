@@ -16,8 +16,8 @@
 #include "sake.hpp"
 #include "sha256.cuh"
 
-#define CHALLENGE_SIZE (32)
-#define NUM_CHALLENGES (1)
+#define CHALLENGE_SIZE 32
+#define NUM_CHALLENGES 1
 
 #define CUDA_CHECK(expr) do { \
     cudaError_t err = (expr); \
@@ -63,42 +63,34 @@ __global__ void sake_test_kernel(Message* msgs) {
 }
 
 // helper function to transfer the strings to the unified memory used for message passing
-void transfer_msg(Message *msg, const char *cts, size_t sz) {
-    if (sz > CHALLENGE_SIZE) {
-        return;
-    }
-
+// NOTE: care for buffer overflow
+void transfer_msg(Message *msg, const char *buf, size_t buf_size) {
     msg->lock.lock();
-    strncpy(msg->ptr, cts, sz);
-    if (sz < CHALLENGE_SIZE) {
-        msg->ptr[sz] = '\0';
-    }
-    msg->size = sz;
+    strncpy(msg->ptr, buf, buf_size);
+    msg->ptr[buf_size] = '\0';
+    msg->size = buf_size;
     msg->id++;
     msg->lock.unlock();
 }
 
-void sake_runner() {
+void sake_runner(Message *msgs) {
     printf("[G] Running SAKE protocol...\n");
-
-    Message *msgs;
-    CUDA_CHECK(cudaMallocHost(&msgs, sizeof(Message)*NUM_CHALLENGES));
-    // printf("%lu\n", sizeof(msgs[0]));
     
-    char *msg_cts; // msg contents
-    CUDA_CHECK(cudaMallocHost(&msg_cts, CHALLENGE_SIZE*NUM_CHALLENGES));
+    char* msg_buf;
+    CUDA_CHECK(cudaMallocHost(&msg_buf, CHALLENGE_SIZE*NUM_CHALLENGES));
 
-    // link msgs to msg contents
-    for (int i=0; i<NUM_CHALLENGES; i++) {
-        msgs[i].ptr = msg_cts+i*CHALLENGE_SIZE;
-        // printf("%s\n", msgs[i].ptr);
-    }
+    // Message *msgs;
+    CUDA_CHECK(cudaMallocHost(&msgs, sizeof(Message)*NUM_CHALLENGES));
+    
+    // link msgs struct to msg buffer
+    for (int i=0; i<NUM_CHALLENGES; i++)
+        msgs[i].ptr = msg_buf+i*CHALLENGE_SIZE;
 
     const char test_msg[] = "asdfasdfasdf";
     // "transfer" msgs
     transfer_msg(&msgs[0], &test_msg[0], strlen(test_msg));
     
-    printf("MSG: %s\n", msg_cts);
+    printf("MSG: %s\n", msg_buf);
     sake_test_kernel<<<1,1>>>(msgs);
    
     sleep(1);
@@ -108,10 +100,10 @@ void sake_runner() {
 
     CUDA_CHECK(cudaDeviceSynchronize());
 
-    printf("MSG: %s\n", msg_cts);
+    printf("MSG: %s\n", msg_buf);
 
-    CUDA_CHECK(cudaFreeHost(msgs));
-    CUDA_CHECK(cudaFreeHost(msg_cts));
+    // CUDA_CHECK(cudaFreeHost(msgs));
+    // CUDA_CHECK(cudaFreeHost(*msg_buf));
 }
 
 // int main() {

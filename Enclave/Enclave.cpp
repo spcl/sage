@@ -33,11 +33,11 @@ int printf(const char *fmt, ...)
 
 sgx_status_t print_hex(uint8_t *buf, size_t len)
 {
-    for (int i = 0; i < len; i++)
+    for (size_t it = 0; it < len; it++)
     {
-        if (i > 0)
+        if (it > 0)
             printf(":");
-        printf("%02X", buf[i]);
+        printf("%02X", buf[it]);
     }
     printf("\n");
     return SGX_SUCCESS;
@@ -97,13 +97,17 @@ sgx_status_t init_encl()
     return SGX_SUCCESS;
 }
 
-sgx_status_t generate_nonce(unsigned int num_blocks, uint8_t *out_buf, size_t len)
+sgx_status_t generate_nonce(unsigned int num_blocks, uint8_t *out_buf, size_t out_len)
 {
     sgx_status_t ret_status;
 
     printf("[E] Generating %u nonces...", num_blocks);
 
-    size_t buffer_len = num_blocks * NONCE_SIZE;
+    uint32_t buffer_len = num_blocks * NONCE_SIZE;
+    if (buffer_len > out_len) { // the ciphertext will be larger than the available buffer
+        printf("[E] Buffer length mismatch in `generate_nonce!\n`");
+        return SGX_ERROR_UNEXPECTED;
+    }
 
     uint8_t *in_buf = (uint8_t *)calloc(num_blocks, NONCE_SIZE);
 
@@ -119,6 +123,12 @@ sgx_status_t generate_nonce(unsigned int num_blocks, uint8_t *out_buf, size_t le
 }
 
 sgx_status_t cleanup_encl() {
+    sgx_status_t ret_status;
+
     printf("[E] Clean up enclave ...");
-    sgx_ecc256_close_context(ecc_handle);
+    ret_status = sgx_ecc256_close_context(ecc_handle);
+    if (ret_status != SGX_SUCCESS)
+        return ret_status;
+
+    return SGX_SUCCESS;
 }
