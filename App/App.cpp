@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <time.h>
 
 # include <unistd.h>
 # include <pwd.h>
@@ -9,8 +10,12 @@
 #include "sgx_urts.h"
 #include "App.h"
 #include "Enclave_u.h"
-#include "../compile-test/test.hpp"
+#include "timing.h"
+// #include "../compile-test/test.hpp"
 #include "../checksum/runner.hpp"
+
+#define NONCE_SIZE 16
+#define NONCE_INTERVAL 1000000
 
 /* Global EID shared by multiple threads */
 sgx_enclave_id_t global_eid = 0;
@@ -145,6 +150,17 @@ void ocall_print_string(const char *str)
     printf("%s", str);
 }
 
+void print_hex(uint8_t *buf, size_t len)
+{
+    for (size_t i = 0; i < len; i++)
+    {
+        if (i > 0)
+            printf(":");
+        printf("%02X", buf[i]);
+    }
+    printf("\n");
+}
+
 
 /* Application entry */
 int SGX_CDECL main(int argc, char *argv[])
@@ -153,20 +169,49 @@ int SGX_CDECL main(int argc, char *argv[])
     (void)(argv);
     /* Initialize the enclave */
     if(initialize_enclave() < 0){
-        printf("Bad things  ...\n");
+        printf("[A] Bad things  ...\n");
         return -1;
     }
-    printf("[A] Enclave creation successful!\n");
-
+    
     sgx_status_t ret_status;
     sgx_status_t sgx_status;
 
     ret_status = init_encl(global_eid, &sgx_status);
+    if (ret_status != SGX_SUCCESS) {
+        printf("[A] Enclave initialisation failed.");
+        return -1;
+    }
 
-    int num_blocks = 16;
-    int nonce_size = 16;
-    uint8_t* out_buf = (uint8_t*)calloc(num_blocks, nonce_size);
-    ret_status = generate_nonce(global_eid, &sgx_status, num_blocks, out_buf, num_blocks*nonce_size);
+    printf("[A] Enclave creation and initialisation successful!\n");
+
+    // nonces
+    int num_blocks = 1;
+    uint8_t* out_buf = (uint8_t*)calloc(num_blocks, NONCE_SIZE);
+    // ret_status = generate_nonce(global_eid, &sgx_status, num_blocks, out_buf, num_blocks*NONCE_SIZE);
+    
+    // for (int i = 0; i < num_blocks; i++) {
+    //     print_hex(&out_buf[i*NONCE_SIZE], NONCE_SIZE);
+    // }
+
+    // timing
+    clockid_t clk_id = CLOCK_MONOTONIC;
+    struct timespec curr, prev;
+    clock_gettime(clk_id, &curr);
+    prev = curr;
+
+    while(true) {
+        clock_gettime(clk_id, &curr);
+        if (difftimespec_us(curr, prev) > NONCE_INTERVAL) {
+            ret_status = generate_nonce(global_eid, &sgx_status, num_blocks, out_buf, num_blocks*NONCE_SIZE);
+            if (ret_status != SGX_SUCCESS) {
+                printf("[A] Generating nonce failed.");
+                return -1;
+            }
+            
+            print_hex(out_buf, NONCE_SIZE);
+            prev = curr;
+        }
+    }
 
     printf("[A] Launching checksum execution\n");
     // checksum_runner();

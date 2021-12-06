@@ -82,15 +82,15 @@ sgx_status_t init_encl()
 
     printf(" done!\n");
 
-    printf("[E] prng iv:  ");
+    printf("[E] prng iv:\t");
     print_hex(&prng_iv[0], SGX_AESCTR_KEY_SIZE);
-    printf("[E] prng key:  ");
+    printf("[E] prng key:\t");
     print_hex(&prng_key[0], SGX_AESCTR_KEY_SIZE);
-    printf("[E] mac key:  ");
+    printf("[E] mac key:\t");
     print_hex(&mac_key[0], SGX_CMAC_KEY_SIZE);
-    printf("[E] ECC pub key:  ");
+    printf("[E] ECC pub key:\t");
     print_hex(&ecc_private.r[0], SGX_ECP256_KEY_SIZE);
-    printf("[E] ECC priv key:  ");
+    printf("[E] ECC priv key:\t");
     print_hex(&ecc_public.gx[0], SGX_ECP256_KEY_SIZE);
     print_hex(&ecc_public.gy[0], SGX_ECP256_KEY_SIZE);
 
