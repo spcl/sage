@@ -101,8 +101,6 @@ sgx_status_t generate_nonce(unsigned int num_blocks, uint8_t *out_buf, size_t ou
 {
     sgx_status_t ret_status;
 
-    printf("[E] Generating %u nonces...", num_blocks);
-
     uint32_t buffer_len = num_blocks * NONCE_SIZE;
     if (buffer_len > out_len) { // the ciphertext will be larger than the available buffer
         printf("[E] Buffer length mismatch in `generate_nonce!\n`");
@@ -110,13 +108,10 @@ sgx_status_t generate_nonce(unsigned int num_blocks, uint8_t *out_buf, size_t ou
     }
 
     uint8_t *in_buf = (uint8_t *)calloc(num_blocks, NONCE_SIZE);
-
     // use AES in CTR mode as a PRNG
     ret_status = sgx_aes_ctr_encrypt(&prng_key, in_buf, buffer_len, prng_iv, 8, out_buf);
     if (ret_status != SGX_SUCCESS)
         return ret_status;
-
-    printf(" done!\n");
 
     free(in_buf);
     return SGX_SUCCESS;

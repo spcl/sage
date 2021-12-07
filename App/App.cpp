@@ -216,9 +216,12 @@ int SGX_CDECL main(int argc, char *argv[])
     clock_gettime(clk_id, &curr);
     prev = curr;
 
+    uint8_t* run;
     Message* msgs;
-    sake_runner(&msgs);
+    sake_malloc(&run, &msgs);
+    sake_runner(run, msgs);
 
+    int i = 0;
     while(true) {
         clock_gettime(clk_id, &curr);
         if (difftimespec_us(curr, prev) > NONCE_INTERVAL) {
@@ -228,12 +231,22 @@ int SGX_CDECL main(int argc, char *argv[])
                 return -1;
             }
 
+            i++;
+
             // transfer nonce
             copy_nonce(&msgs[0], (const char*)out_buf, NONCE_SIZE);
+            printf("SGX app:\t");
             print_hex(out_buf, NONCE_SIZE);
             prev = curr;
+
+            if (i >= 10) {
+                *run = 0; // stop the GPU kernel
+                break;
+            }
         }
     }
+
+    sake_free(run, msgs);
 
     printf("[A] Launching checksum execution\n");
     // checksum_runner();

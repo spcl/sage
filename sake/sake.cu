@@ -41,6 +41,17 @@
     }\
 } while (0)
 
+__device__ void d_print_hex(uint8_t *buf, size_t len)
+{
+    for (size_t i = 0; i < len; i++)
+    {
+        if (i > 0)
+            printf(":");
+        printf("%02X", buf[i]);
+    }
+    printf("\n");
+}
+
 __global__ void sake_test_kernel(volatile uint8_t* run, Message* msgs) {
     const int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
@@ -51,13 +62,16 @@ __global__ void sake_test_kernel(volatile uint8_t* run, Message* msgs) {
             curr_id = msgs[tid].id;
 
             // TODO: process msg
+            printf("GPU kernel:\t");
+            d_print_hex((uint8_t*)msgs[tid].ptr, msgs[tid].size);
+            // printf("new message detected! %s\n", msgs[tid].ptr);
             msgs[tid].ptr[0] = tid + '0';
     
             msgs[tid].lock.unlock();
         }
     }
 
-    printf("DONE\n");
+    printf("KERNEL DONE\n");
 }
 
 // helper function to transfer the strings to the unified memory used for message passing
@@ -71,16 +85,12 @@ void transfer_msg(Message *msg, const char *buf, size_t buf_size) {
     msg->lock.unlock();
 }
 
-void sake_runner(Message** msgs) {
-    printf("[D] Running SAKE protocol...\n");
-    uint8_t* run;
-    CUDA_CHECK(cudaMallocHost(&run, 1));
-    *run = 1;
+void sake_malloc(uint8_t** run, Message** msgs) {
+    CUDA_CHECK(cudaMallocHost(run, 1));
 
     char* msg_buf;
     CUDA_CHECK(cudaMallocHost(&msg_buf, CHALLENGE_SIZE*NUM_CHALLENGES));
 
-    // Message *msgs;
     CUDA_CHECK(cudaMallocHost(msgs, sizeof(Message)*NUM_CHALLENGES));
     
     // link msgs struct to msg buffer
@@ -88,25 +98,30 @@ void sake_runner(Message** msgs) {
         (*msgs)[i].ptr = msg_buf+i*CHALLENGE_SIZE;
         (*msgs)[i].id = 0;
     }
-    
-    sake_test_kernel<<<1,1>>>(run, *msgs);
+}
 
-    sleep(2);
-    *run = 0;
-    printf("[D] Stop running kernel.\n");
+void sake_free(uint8_t* run, Message* msgs) {
+    CUDA_CHECK(cudaFreeHost(run));
+    CUDA_CHECK(cudaFreeHost(msgs[0].ptr));
+    CUDA_CHECK(cudaFreeHost(msgs));
+}
 
-    cudaDeviceSynchronize();
+void sake_runner(uint8_t* run, Message* msgs) {
+    printf("[D] Running SAKE protocol...\n");
+    *run = 1;
 
-    printf("[D] Stop execution.\n");
-    // CUDA_CHECK(cudaDeviceSynchronize());
-
-    // CUDA_CHECK(cudaFreeHost(msgs));
-    // CUDA_CHECK(cudaFreeHost(*msg_buf));
+    sake_test_kernel<<<1,1>>>(run, msgs);
 }
 
 // nvcc -o test sake.cu sha256.cu -arch=sm_61 -lcuda
-int main() {
-    Message *msgs;
-    sake_runner(&msgs);
-    return 0;
-}
+// int main() {
+//     uint8_t* run;
+//     Message* msgs;
+//     sake_malloc(&run, &msgs);
+//     sake_runner(run, msgs);
+//     sleep(2);
+//     *run = 0;
+//     printf("[D] Stop running kernel.\n");
+//     sake_free(run, msgs);
+//     return 0;
+// }
