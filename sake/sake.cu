@@ -41,13 +41,11 @@
     }\
 } while (0)
 
-__global__ void sake_test_kernel(uint8_t* run, Message* msgs) {
+__global__ void sake_test_kernel(volatile uint8_t* run, Message* msgs) {
     const int tid = threadIdx.x + blockIdx.x * blockDim.x;
 
     int curr_id = -1;
-    volatile uint8_t infinity = *run;
-    while(infinity) { // wait for incoming msgs
-        volatile uint8_t infinity = *run;
+    while(*run) { // wait for incoming msgs
         if(msgs[tid].id != curr_id) {
             msgs[tid].lock.lock();
             curr_id = msgs[tid].id;
@@ -58,6 +56,8 @@ __global__ void sake_test_kernel(uint8_t* run, Message* msgs) {
             msgs[tid].lock.unlock();
         }
     }
+
+    printf("DONE\n");
 }
 
 // helper function to transfer the strings to the unified memory used for message passing
@@ -74,7 +74,7 @@ void transfer_msg(Message *msg, const char *buf, size_t buf_size) {
 void sake_runner(Message** msgs) {
     printf("[D] Running SAKE protocol...\n");
     uint8_t* run;
-    CUDA_CHECK(cudaMallocHost(&run, CHALLENGE_SIZE*NUM_CHALLENGES));
+    CUDA_CHECK(cudaMallocHost(&run, 1));
     *run = 1;
 
     char* msg_buf;
@@ -95,7 +95,7 @@ void sake_runner(Message** msgs) {
     *run = 0;
     printf("[D] Stop running kernel.\n");
 
-    sleep(5);
+    cudaDeviceSynchronize();
 
     printf("[D] Stop execution.\n");
     // CUDA_CHECK(cudaDeviceSynchronize());
