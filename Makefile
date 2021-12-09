@@ -1,6 +1,7 @@
 ######## SGX SDK Settings ########
 
-SGX_SDK ?= /opt/intel/sgxsdk
+#SGX_SDK ?= /opt/intel/sgxsdk
+SGX_SDK ?= /local/home/ben/sgx-sdk/sgxsdk
 SGX_MODE ?= HW
 SGX_ARCH ?= x64
 SGX_DEBUG ?= 1
@@ -195,7 +196,7 @@ compile-test/test.o: compile-test/test.cu
 	@echo "NVCC   <=  $<"
 
 checksum/checksum.cubin: checksum/checksum.cu
-	@nvcc $< -cubin -dlink -arch=sm_75 -G -o $@
+	@nvcc $< -cubin -dlink -arch=sm_$(cap) -G -o $@
 	@echo "NVCC   <=  $<"
 
 checksum/checksum_function.bin: checksum/checksum.cubin
@@ -207,7 +208,7 @@ checksum/checksum_runner.o: checksum/runner.cpp checksum/checksum_function.bin
 	@echo "NVCC   <=  $<"
 
 sake/sake.o: sake/sake.cu sake/sha256.cu
-	@nvcc  -c $< -o $@ -gencode arch=compute_75,code=sm_75
+	@nvcc  -c $< -o $@ -gencode arch=compute_$(cap),code=sm_$(cap)
 	@echo "NVCC   <=  $<"
 
 ######## App Objects ########

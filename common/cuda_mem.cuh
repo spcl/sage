@@ -58,7 +58,7 @@ struct Message {
         return *this;
     }
 
-    int id;
+    volatile int id;
     char* ptr;
     size_t size;
     int threadRank;

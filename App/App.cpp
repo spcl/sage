@@ -165,6 +165,7 @@ void print_hex(uint8_t *buf, size_t len)
 }
 
 void copy_nonce(Message *msg, const char *buf, size_t buf_size) {
+    // printf("cpy nonce: msg id %d\n", msg->id);
     msg->lock.lock();
     strncpy(msg->ptr, buf, buf_size);
     msg->ptr[buf_size] = '\0';
@@ -212,19 +213,22 @@ int SGX_CDECL main(int argc, char *argv[])
 
     // timing
     clockid_t clk_id = CLOCK_MONOTONIC;
-    struct timespec curr, prev;
-    clock_gettime(clk_id, &curr);
-    prev = curr;
+    struct timespec curr_nc_ts, prev_nc_ts, chl_ts, rsp_ts;
+    clock_gettime(clk_id, &curr_nc_ts);
+    prev_nc_ts = curr_nc_ts;
 
     uint8_t* run;
     Message* msgs;
-    sake_malloc(&run, &msgs);
-    sake_runner(run, msgs);
+    Message* rsps;
+    sake_malloc(&run, &msgs, &rsps);
+    sake_runner(run, msgs, rsps);
 
     int i = 0;
+
+    int resp_id = -1;
     while(true) {
-        clock_gettime(clk_id, &curr);
-        if (difftimespec_us(curr, prev) > NONCE_INTERVAL) {
+        clock_gettime(clk_id, &curr_nc_ts);
+        if (difftimespec_us(curr_nc_ts, prev_nc_ts) > NONCE_INTERVAL) {
             ret_status = generate_nonce(global_eid, &sgx_status, num_blocks, out_buf,  num_blocks*NONCE_SIZE);
             if (ret_status != SGX_SUCCESS) {
                 printf("[A] Generating nonce failed.");
@@ -234,19 +238,31 @@ int SGX_CDECL main(int argc, char *argv[])
             i++;
 
             // transfer nonce
+            clock_gettime(clk_id, &chl_ts);
             copy_nonce(&msgs[0], (const char*)out_buf, NONCE_SIZE);
-            printf("SGX app:\t");
-            print_hex(out_buf, NONCE_SIZE);
-            prev = curr;
+            // printf("SGX app:\t");
+            // print_hex(out_buf, NONCE_SIZE);
+            prev_nc_ts = curr_nc_ts;
 
             if (i >= 10) {
                 *run = 0; // stop the GPU kernel
                 break;
             }
         }
+
+        // TODO: extend for multiple responses/threads
+        if (rsps[0].id != resp_id) {
+            rsps[0].lock.lock();
+            resp_id = rsps[0].id;
+            // printf("SGX app rsp:\t");
+            // print_hex((uint8_t*)rsps[0].ptr, NONCE_SIZE);
+            clock_gettime(clk_id, &rsp_ts);
+            printf("Time diff: %ld ns\n", difftimespec_ns(rsp_ts, chl_ts));
+            rsps[0].lock.unlock();
+        }
     }
 
-    sake_free(run, msgs);
+    sake_free(run, msgs, rsps);
 
     printf("[A] Launching checksum execution\n");
     // checksum_runner();
