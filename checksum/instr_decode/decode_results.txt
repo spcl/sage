@@ -1,0 +1,539 @@
+==================== NOP =======================
+
+@PA NOP    0x000fc000000000000000000000007918
+
+11..0 (12) opcode=0x918
+14..12 (3) PA
+15 (1) !PA
+104..16 UNKNOWN
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) ZERO/UNKNOWN
+
+==================== IADD3 =======================
+                                                             91 12..0
+@PA IADD3[.X] RA, PB, PC, RB, RD, RC[, PD, PE]               0  0x210
+@PA IADD3[.X] RA, PB, PC, RB, IMM, RC[, PD, PE]              0  0x810
+@PA IADD3[.X] RA, PB, PC, RB, c[CA][CB], RC[, PD, PE]        0  0xa10 
+@PA IADD3[.X] RA, PB, PC, RB, cx[URA][CB], RC[, PD, PE]      1  0xa10 
+@PA IADD3[.X] RA, PB, PC, RB, URA, RC[, PD, PE]              1  0xc10 
+
+11..0 (12) opcode
+14..12 (3) @PA index @PA = @P0-@P6, @P7 = @PT not printed
+15 @PA negation @!P0-@!P6,@!PT
+23..16 (8) RA = R0-R254, R255 printed as RZ
+31..24 (8) RB = R0-R254, R255 printed as RZ
+*** IMM version
+    63..32 (32) IMM (two-complement integer const)
+*** c[CA][CB] version
+    53..40 (14) CB = 4 * (two-complement integer)
+    58..54 (5) CA (unsigned int)
+    63 negate c[CA][CB]
+*** RD version
+    39..32 (8) RD=R0-R254,RZ 
+    63 negate RD
+71..64 RC = R0-R254, R255 printed as RZ
+72 negate RB: - or ~ RB depending on the .X
+73 ZERO/UNKNOWN
+74 carry version with .X, PD, PE 
+75 negate RC: - or ~ RC depending on the .X
+76 ZERO/UNKNOWN
+79..77 (3) PE=P0-P6,PT
+80 negate PE: ~PE
+83..81 (3) PB=P0-P6,PT
+86..84 (3) PC=P0-P6,PT
+89..87 (3) PD=P0-P6,PT
+90 (1) negate PD: ~PD
+91 (1) uniform datapath
+108-92 ZERO/UNKNOWN
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) ZERO/UNKNOWN
+
+==================== STL =======================
+
+@PA STL.EVICTION.TYPE [RA+CONST], RB
+
+Put READ control bits on write into RB
+
+EVICTION = cache eviction policy (check ld in PTX for documentation)
+EF(.L1::evict_first), (empty)(.L1::evict_normal), EL(.L1::evict_last), LU(??), EU(.L1::evict_unchanged), NA(.L1::no_allocate)
+
+11..0 (12) opcode=0b001110000111=0x387
+14..12 (3) PA
+15 (1) !PA
+23..16 UNKNOWN/ANY
+31..24 (8) RA
+39..32 (8) RB
+63..40 (14) CONST (signed)
+72..64 UNKNOWN/ANY
+75..73 (3) TYPE=U8,S8,U16,S16,32(empty),64,128,INVALID7
+83..76 (8) UNKNOWN/ANY
+86..84 (3) EVICTION policy = EF,(empty),EL,LU,EU,NA,INVALID6,INVALID7
+90..87 UNKNOWN/ANY
+91 uniform datapath (ERROR if enabled)
+108-92 UNKNOWN/ANY
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) ZERO/UNKNOWN
+
+==================== MOV =======================
+
+v1                                  91  11..0
+@PA MOV RA, RB, UIMM2               0   0010.0000.0010 = 0x202
+v2
+@PA MOV RA, c[CA][CB], UIMM2        0   1010.0000.0010 = 0xa02
+v3
+@PA MOV RA, UIMM{, UIMM2}           0   1000.0000.0010 = 0x802
+v4
+@PA MOV RA, cx[URA][CB], UIMM2      1   1010.0000.0010 = 0xa02
+v5
+@PA MOV RA, URA, UIMM2              1   1100.0000.0010 = 0xc02
+
+11..0 (12) opcode
+14..12 (3) PA
+15 (1) !PA
+23..16 (8) RA
+31..24 (8) UNKNOWN/ANY
+### *** 39..32 (8) RB
+    *** 37..32 (6) URA
+        39..38 UNKNOWN/ANY
+    53..40 (14) CB * 4 (signed)
+    58..54 (5) CA (unsigned)
+    63..59 UNKNOWN/ANY
+### 63..32 (32) UIMM (unsigned)
+71..64 UNKNOWN/ANY
+75..72 (4) UIMM2 (unsigned)
+90..76 UNKNOWN/ANY
+91 uniform datapath
+108-92 UNKNOWN/ANY
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) ZERO/UNKNOWN
+
+==================== LDL =======================
+
+                                           91  11..0   
+@P0 LDL.EVICTION.TYPE RA, [RB+CONST]       0   0x983
+@P0 LDL.EVICTION.TYPE RA, [RB+URA+CONST]   1   0x983
+
+Put READ control bits on write into RB
+Put WRITE control bits on read from RA
+
+10..0 (12) opcode
+14..12 (3) PA
+15 (1) !PA
+23..16 (8) RA
+31..24 (8) RB
+37..32 (6) URA
+39..38 (2) UNUSED
+63..40 (14) signed CONST
+72..64 UNKNOWN/ANY
+75..73 (3) TYPE=U8,S8,U16,S16,32(empty),64,128,INVALID7
+83..76 (8) UNKNOWN/ANY
+86..84 (3) EVICTION policy = EF,(empty),EL,LU,EU,NA,INVALID6,INVALID7
+90..87 UNKNOWN/ANY
+91 uniform datapath (ERROR if enabled)
+108-92 UNKNOWN/ANY
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) ZERO/UNKNOWN
+
+================= LD ======================
+
+@PA LD{.E}{.EV}{.LTC}{.TYPE}{.PARAM}.SCOPE{.ZD} {PC, }RA, [RB{+IMM}]{, PB}       0x980
+
+11..0 (12) opcode
+14..12 (3) PA
+15 (1) !PA
+23..16 (8) RA
+31..24 (8) RB
+63..32 (32) signed IMM
+66..64 (3) inverted encoding PB := P7=PT=<empty>,P6,...,P0
+67 !PB
+69..68 LTC = <empty>, LTC64B, LTC128B, INVALID3
+71..70 UNUSED
+72 .E
+75..73 TYPE = U8, S8, U16, S16, <empty>, 64, 128, 7=.U.128(probably invalid)
+76 <empty> / .PRIVATE
+78..77 SCOPE = .CTA / .SM / .GPU / .SYS
+80..79 PARAM = .CONSTANT / <empty> / .STRONG / .MMIO
+83..81 PC
+86..84 (3) EV policy = EF,(empty),EL,LU,EU,NA,INVALID6,INVALID7
+87 .ZD (TODO: location) PC, RA, [RB]
+90..88 UNKNOWN
+91 uniform datapath [R0.U32+UR0]
+108-92 UNKNOWN/ANY
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) ZERO/UNKNOWN
+
+================= ST ======================
+
+@PA ST{.E}{.EV}{.TYPE}{.PARAM}.SCOPE [RA+SIMM], RB
+
+11..0 (12) opcode 0x385
+14..12 (3) PA
+15 (1) !PA
+23..16 (8) unused
+31..24 (8) RA
+63..32 (32) SIMM singned
+71..64 (8) RB
+72 .E
+75..73 (3) TYPE = U8, S8, U16, S16, <empty>, 64, 128, 7=.U.128(probably invalid)
+76 <empty> / .PRIVATE
+78..77 (2) SCOPE = .CTA / .SM / .GPU / .SYS
+80..79 (2) PARAM = .CONSTANT / <empty> / .STRONG / .MMIO
+83..81 (3) unused
+86..84 (3) EV policy = EF,(empty),EL,LU,EU,NA,INVALID6,INVALID7
+90..87 (4) unused
+91 uniform datapath [R0.U32+UR0]
+108-92 UNKNOWN/ANY
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) ZERO/UNKNOWN
+
+==================== IMAD =======================
+ 
+@PA IMAD.U32 RA, RB, RC, RD                    0x224
+@P0 IMAD.WIDE.U32 R0, PC, R0, R0, R0           0x225
+@P0 IMAD.HI.U32 R0, PC, R0, R0, R0             0x227
+@P0 IMAD.U32 RA, RB, RD, CONST                 0x424
+@P0 IMAD.U32 R0, R0, R0, c[CA][CB]             0x624
+@P0 IMAD.WIDE.U32 R0, PC, R0, R0, c[CA][CB]    0x625
+@P0 IMAD.HI.U32 R0, PC, R0, R0, c[CA][CB]      0x627
+@P0 IMAD.MOV.U32 RA, RB, CONST, RD             0x824
+@P0 IMAD.WIDE.U32 R0, PC, R0, CONST, R0        0x825
+@P0 IMAD.HI.U32 R0, PC, R0, CONST, R0          0x827
+@P0 IMAD.U32 R0, R0, c[CA][CB], R0             0xa24
+@P0 IMAD.WIDE.U32 R0, PC, R0, c[CA][CB], R0    0xa25
+@P0 IMAD.HI.U32 R0, PC, R0, c[CA][CB], R0      0xa27
+
+.HI variant requires RD to be even!
+it actually uses odd pair of RD register and not RD itself!
+
+tmp = RB * RC + RD,R{D+1}
+LO   : RA = lo(tmp)
+HI   : RA = hi(tmp)
+WIDE : RA = tmp       
+
+(uniform datapath cases are not listed)
+
+11..0 (12) opcode
+14..12 (3) PA
+15 (1) !PA
+23..16 (8) RA
+31..24 (8) RB
+*** 39..32 (8) RC
+    63..40 UNUSED
+*** 63..32 CONST (signed)
+*** 39..32 UNUSED
+    53..40 (14) CB (signed)
+    58..54 (5) CA (unsigned)
+    62..59 UNUSED
+    63 -c[CA][CB]
+71..64 (8) RD
+72 UNUSED
+73 unsigned (.U32) / signed (empty)
+74 .X version with predicate PB at the end
+75 -RD
+80..76 UNKNOWN
+83..81 PC
+86..84 UNKNOWN
+89..87 PB
+90 !PB
+91 uniform datapath
+108-92 UNKNOWN/ANY
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) ZERO/UNKNOWN
+
+==================== LOP3.LUT =======================
+
+@PA LOP3.LUT {PB, }RA, RB, RC, RD, UIMM, PC             0x212
+@PA LOP3.LUT {PB, }RA, RB, IMM, RD, UIMM, PC            0x812
+@PA LOP3.LUT {PB, }RA, RB, c[CA][CB], RD, UIMM, PC      0xa12
+
+It seems that PC is a special flag: by default it should be false: !PT
+
+11..0 (12) opcode
+14..12 (3) PA
+15 (1) !PA
+23..16 (8) RA
+31..24 (8) RB
+*** 39..32 (8) RC
+    63..40 UNUSED
+*** 63..32 IMM (signed)
+*** 39..32 UNUSED
+    53..40 (14) CB (signed)
+    58..54 (5) CA (unsigned)
+    62..59 UNUSED
+    63 -c[CA][CB]
+71..64 (8) RD
+72..79 (8) UIMM (unsigned) boolean op on 3 args
+80 .PAND (??)
+83..81 PB
+86..84 UNKNOWN
+89..87 PC
+90 !PC
+91 uniform datapath
+108-92 UNKNOWN/ANY
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) ZERO/UNKNOWN
+
+==================== LEA =======================
+
+@PA LEA{.HI}{.X}{.SX32} RA{, PB}, RB, RC{, RD}, UIMM2{, PC}           0x211
+@P0 LEA{.HI}{.X}{.SX32} RA{, PB}, RB, UIMM{, RD}, UIMM2{, PC}         0x811
+@P0 LEA{.HI}{.X}{.SX32} RA{, PB}, RB, c[CA][CB]{, RD}, UIMM2{, PC}    0xa11
+
+LO variant: RA = RC + (RZ:RB << UIMM2).LO = RC + (RB << UIMM2)
+HI variant: RA = RC + (RD:RB << UIMM2).HI = RC + ((RB >> (32 - UIMM2)) | (RD << UIMM2))
+
+11..0 (12) opcode
+14..12 (3) PA
+15 (1) !PA
+23..16 (8) RA
+31..24 (8) RB
+*** 39..32 (8) RC
+    62..40 UNUSED
+    63 -RC
+*** 63..32 (32) UIMM
+*** 39..32 UNUSED
+    53..40 (14) CB (signed)
+    58..54 (5) CA (unsigned)
+    62..59 UNUSED
+    63 -c[CA][CB]
+71..64 RD
+72 -RB
+73 <empty> / .SX32 suffix (only in .HI version)
+74 .X (enable PC)
+79..75 UIMM2
+80 .HI (enable RD)
+83..81 PB
+90..84 UNUSED
+89..87 PC
+90 !PC
+91 uniform datapath
+108-92 UNUSED
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) ZERO/UNKNOWN
+
+================= SEL ======================
+
+@PA SEL RA, RB, RC, PB              0x207
+@P0 SEL R0, R0, UIMM, P0            0x807
+@P0 SEL R0, R0, c[CA][CB], P0       0xa07
+
+11..0 (12) opcode
+14..12 (3) PA
+15 (1) !PA
+23..16 (8) RA
+31..24 (8) RB
+*** 39..32 (8) RC
+    63..40 UNUSED
+*** 63..32 (32) unsigned UIMM
+*** 39..32 UNUSED
+    53..40 (14) CB (signed)
+    58..54 (5) CA (unsigned)
+    63..59 UNUSED
+86..64 UNUSED
+89..87 PB
+90 !PB
+91 uniform datapath
+108-92 UNKNOWN/ANY
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) ZERO/UNKNOWN
+
+================= RET ======================
+
+Example:
+RET.ABS.NODEC R20 0x0 ;                                   /* 0x0000000014007950 */
+Stall=15 Yield=0 Wait=[ 0 1 ]                             /* 0x003fde0003e00000 */
+
+REL_CONST = {REL -> 0x10 , ABS -> 0x0}
+
+@PA RET.REL PB, RA REL_CONST+4*CONST                 0x950
+
+
+11..0 (12) opcode
+14..12 (3) PA
+15 (1) !PA
+23..16 UNUSED
+31..24 (8) RA
+33..32 UNUSED
+81..34 CONST (signed)
+84..82 UNUSED
+85 .REL / .ABS
+86 .NODEC
+89..87 PB
+90 !PB
+91 RA -> URA
+104..92 UNKNOWN/ANY
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) ZERO/UNKNOWN
+
+================= BRA =================
+
+@PA BRA PB, 0x10 + 4*CONST        0x947
+
+11..0 (12) opcode
+14..12 (3) PA
+15 (1) !PA
+31..16 UNUSED
+33..32 <empty> / .U / .DIV / .CONV
+81..34 (signed CONST)
+84..82 UNUSED
+86..85 <empty> / .INC / .DEC / INVALID3
+89..87 PB
+90 !PB
+104..91 UNKNOWN
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) UNUSED
+
+/*1ea70*/ L_20 = 0b11110101001110000
+
+/*57ab0*/ BRA `(.L_20) ; = 0b1010111101010110000
+0xfffc6fb000007947 = 0b 11111111111111000110111110110000 00000000000000000111100101000111
+0x003fde000383ffff = 0b111111110111100000000000000011100000111111111111111111
+
+address of BRA: 0x57ab0
+address of L20: 0x1ea70
+address of one instruction less 0x10
+negation in 2 complement
+0x1ea70 - 0x57ab0 - 0x10 = 0x100000000 - 0x1ea70 + 0x57ab0 + 0x10 = 0b 11111111111111000110111110110000
+
+================= BRX =================
+
+@PA BRX {PB, }RA{ IMM}          0x949
+
+Requirement: IMM % 4 == 0
+
+RA,R{A+1} is treated as 64 bit regsiter where RA contains LO part
+value in RA is UNSIGNED and have to be modulo 16 (16 bytes is a size of one instruction)
+value in IMM is a SIGNED contant offset added to value in RA, it also have to be modulo 16
+
+11..0 (12) opcode
+14..12 (3) PA
+15 (1) !PA
+23..16 UNUSED
+31..24 RA
+33..32 UNUSED
+81..34 (48) (IMM / 4) (signed)
+84..82 UNUSED
+86..85 <empty> / .INC / .DEC / INVALID3
+89..87 PB
+90 !PB
+104..91 UNUSED
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) UNUSED
+
+both BRX and BRA store RELATIVE offset
+it should be relative to the address of the next instruction after BRX/BRA
+
+/*57aa0*/                   BRX R80 -0x57ab0 ;                                        /* 0xfffa855050007949 */
+                            Stall=15 Yield=0 Wait=[ 0 1 ]                             /* 0x003fde000383ffff */
+
+address of one instruction less 0x10 (probably to compensate PC increase in the current instruction)
+
+0b 11111111111110101000010101010000 01010000000000000111100101001001 = 0xfffa855050007949
+0x57aa0 + 0x10 = 0b1010111101010110000, -0x57ab0 - 0x10 = 0b 11111111111110101000010101010000
+
+======================= ISETP =======================
+
+@PA ISETP.CMP{.U32}.BOOL{.EX} PB, PC, RA, RB, PD{, PE}          0x20c
+@PA ISETP.CMP{.U32}.BOOL{.EX} PB, PC, RA, IMM, PD{, PE}         0x80c
+@PA ISETP.CMP{.U32}.BOOL{.EX} PB, PC, RA, c[CA][CB], PD{, PE}   0xa0c
+
+11..0 opcode
+14..12 (3) PA
+15 (1) !PA
+31..24 RA
+*** 40..32 RB
+    63..41 UNUSED
+*** 63..32 signed IMM
+*** 39..32 UNUSED
+    53..40 (14) CB (signed)
+    58..54 (5) CA (unsigned)
+    63..59 UNUSED
+70..68 PE (empty if PT)
+71 !PE
+72 <empty> / .EX
+73 .U32 / <empty> (.S32)
+75..74 BOOL = AND, OR, XOR, INVALID3
+78..76 CMP = F,LT,EQ,LE,GT,NE,GE,T
+83..81 PB
+86..84 PC
+89..87 PD
+90 !PD
+91 uniform datapath
+104..91 UNUSED
+108..105 (4) stall bits
+109 (1) yield flag (failure if enabled)
+112..110 (3) write bits
+115..113 (3) read bits
+121..116 (6) barrier bits
+125..122 (4) reuse bits
+127..126 (2) UNUSED

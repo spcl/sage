@@ -1,0 +1,88 @@
+========= Summary results of pseudoDIEHARD =========
+
+ Generator:        file_gen
+ Number of statistics:  126
+ Total CPU time:   00:00:12.50
+
+ All tests were passed
+
+
+
+End of test
+============== Summary results of FIPS-140-2 ==============
+
+ Generator:        file_gen
+ Number of bits:   20000
+
+       Test          s-value        p-value    FIPS Decision
+ --------------------------------------------------------
+ Monobit               9917           0.88       Pass
+ Poker                15.54           0.41       Pass
+
+ 0 Runs, length 1:     2587                      Pass
+ 0 Runs, length 2:     1213                      Pass
+ 0 Runs, length 3:      648                      Pass
+ 0 Runs, length 4:      317                      Pass
+ 0 Runs, length 5:      153                      Pass
+ 0 Runs, length 6+:     153                      Pass
+
+ 1 Runs, length 1:     2598                      Pass
+ 1 Runs, length 2:     1256                      Pass
+ 1 Runs, length 3:      624                      Pass
+ 1 Runs, length 4:      311                      Pass
+ 1 Runs, length 5:      137                      Pass
+ 1 Runs, length 6+:     144                      Pass
+
+ Longest run of 0:       16           0.14       Pass
+ Longest run of 1:       14           0.46       Pass
+ ----------------------------------------------------------
+ All values are within the required intervals of FIPS-140-2
+
+
+
+End of test
+========= Summary results of SmallCrush =========
+
+ Version:          TestU01 1.2.3
+ Generator:        file_gen
+ Number of statistics:  15
+ Total CPU time:   00:00:12.94
+ The following tests gave p-values outside [0.001, 0.9990]:
+ (eps  means a value < 1.0e-300):
+ (eps1 means a value < 1.0e-15):
+
+       Test                          p-value
+ ----------------------------------------------
+  3  Gap                              eps  
+ ----------------------------------------------
+ All other tests were passed
+
+
+
+End of test
+========= Summary results of Alphabit =========
+
+ Version:          TestU01 1.2.3
+ Generator:        file_gen
+ Number of bits:   67108864
+ Number of statistics:  17
+ Total CPU time:   00:00:01.69
+
+ All tests were passed
+
+
+
+End of test
+========= Summary results of Rabbit =========
+
+ Version:          TestU01 1.2.3
+ Generator:        file_gen
+ Number of bits:   67108864
+ Number of statistics:  40
+ Total CPU time:   00:00:32.03
+
+ All tests were passed
+
+
+
+End of test
