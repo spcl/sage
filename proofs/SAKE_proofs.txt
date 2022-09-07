@@ -1,0 +1,592 @@
+maude tool: 'maude'
+ checking version: 2.7.1. OK.
+ checking installation: OK.
+
+theory SAKE begin
+
+// Function signature and definition of the equational theory E
+
+builtins: diffie-hellman
+functions: cksum/1, fst/1, g/0, h/1, mac/2, pair/2, snd/1
+equations: fst(<x.1, x.2>) = x.1, snd(<x.1, x.2>) = x.2
+
+
+
+rule (modulo E) ChanOut_A:
+   [ Out_A( $A, $B, x ) ]
+  --[ ChanOut_A( $A, $B, x ) ]->
+   [ !Auth( $A, x ), Out( <$A, $B, x> ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) ChanIn_A:
+   [ !Auth( $A, x ), In( $B ) ]
+  --[ ChanIn_A( $A, $B, x ) ]->
+   [ In_A( $A, $B, x ) ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Verifier_1:
+   [ Fr( ~a ) ]
+  --[ Neq( $V, $D ), StartV( $V ) ]->
+   [
+   Verifier_1( $V, $D, ~a, g^~a, h(g^~a), cksum(h(h(g^~a))) ),
+   Out( h(h(g^~a)) )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Verifier_2:
+   [ Verifier_1( $V, $D, a, v0, v1, c ), In_A( $V, $D, <w2_msg, $D> ) ]
+  --[ Eq( mac(c, fst(w2_msg)), snd(w2_msg) ) ]->
+   [ Verifier_2( $V, $D, a, v0, v1, fst(w2_msg) ), Out( v1 ) ]
+
+  /*
+  rule (modulo AC) Verifier_2:
+     [ Verifier_1( $V, $D, a, v0, v1, c ), In_A( $V, $D, <w2_msg, $D> ) ]
+    --[ Eq( mac(c, z), z.1 ) ]->
+     [ Verifier_2( $V, $D, a, v0, v1, z ), Out( v1 ) ]
+    variants (modulo AC)
+    1. w2_msg
+             = w2_msg.10
+       z     = fst(w2_msg.10)
+       z.1   = snd(w2_msg.10)
+    
+    2. w2_msg
+             = <x.10, x.11>
+       z     = x.10
+       z.1   = x.11
+  */
+
+rule (modulo E) Verifier_3:
+   [ Verifier_2( $V, $D, a, v0, v1, w2 ), In( w1_msg ) ]
+  --[
+  Eq( mac(w2, snd(fst(w1_msg))), snd(snd(w1_msg)) ),
+  Eq( h(fst(w1_msg)), w2 )
+  ]->
+   [
+   Verifier_3( $V, $D, a, v0, v1, w2, fst(w1_msg), snd(fst(w1_msg)) ),
+   Out( v0 )
+   ]
+
+  /*
+  rule (modulo AC) Verifier_3:
+     [ Verifier_2( $V, $D, a, v0, v1, w2 ), In( w1_msg ) ]
+    --[ Eq( mac(w2, z.1), z.2 ), Eq( h(z), w2 ) ]->
+     [ Verifier_3( $V, $D, a, v0, v1, w2, z, z.1 ), Out( v0 ) ]
+    variants (modulo AC)
+    1. w1_msg
+             = w1_msg.11
+       z     = fst(w1_msg.11)
+       z.1   = snd(fst(w1_msg.11))
+       z.2   = snd(snd(w1_msg.11))
+    
+    2. w1_msg
+             = <x.11, x.12>
+       z     = x.11
+       z.1   = snd(x.11)
+       z.2   = snd(x.12)
+    
+    3. w1_msg
+             = <x.11, x.12, x.13>
+       z     = x.11
+       z.1   = snd(x.11)
+       z.2   = x.13
+    
+    4. w1_msg
+             = <<x.11, x.12>, x.13>
+       z     = <x.11, x.12>
+       z.1   = x.12
+       z.2   = snd(x.13)
+    
+    5. w1_msg
+             = <<x.11, x.12>, x.13, x.14>
+       z     = <x.11, x.12>
+       z.1   = x.12
+       z.2   = x.14
+  */
+
+rule (modulo E) Verifier_4:
+   [ Verifier_3( $V, $D, a, v0, v1, w2, w1, k ), In( w0 ) ]
+  --[ SecretV( k^a ), Eq( h(w0), w1 ), Commit( $V, $D, k^a ) ]->
+   [ ]
+
+  /*
+  rule (modulo AC) Verifier_4:
+     [ Verifier_3( $V, $D, a, v0, v1, w2, w1, k ), In( w0 ) ]
+    --[ SecretV( z ), Eq( h(w0), w1 ), Commit( $V, $D, z ) ]->
+     [ ]
+    variants (modulo AC)
+     1. a     = a.11
+        k     = k.11
+        z     = k.11^a.11
+    
+     2. a     = x.11
+        k     = x.12^inv(x.11)
+        z     = x.12
+    
+     3. a     = x.11
+        k     = x.12^inv((x.11*x.13))
+        z     = x.12^inv(x.13)
+    
+     4. a     = x.11
+        k     = x.12^(x.13*inv(x.11))
+        z     = x.12^x.13
+    
+     5. a     = x.11
+        k     = x.12^(x.13*inv((x.11*x.14)))
+        z     = x.12^(x.13*inv(x.14))
+    
+     6. a     = a.13
+        k     = x.11^x.12
+        z     = x.11^(x.12*a.13)
+    
+     7. a     = inv(x.11)
+        k     = x.12^x.11
+        z     = x.12
+    
+     8. a     = inv(x.11)
+        k     = x.12^inv(x.13)
+        z     = x.12^inv((x.11*x.13))
+    
+     9. a     = inv(x.11)
+        k     = x.12^(x.11*x.13)
+        z     = x.12^x.13
+    
+    10. a     = inv(x.11)
+        k     = x.12^(x.13*inv(x.14))
+        z     = x.12^(x.13*inv((x.11*x.14)))
+    
+    11. a     = inv((x.11*x.12))
+        k     = x.13^x.11
+        z     = x.13^inv(x.12)
+    
+    12. a     = inv((x.11*x.12))
+        k     = x.13^(x.11*x.14)
+        z     = x.13^(x.14*inv(x.12))
+    
+    13. a     = inv((x.11*x.12))
+        k     = x.13^(x.11*x.14*inv(x.15))
+        z     = x.13^(x.14*inv((x.12*x.15)))
+    
+    14. a     = inv((x.11*x.12))
+        k     = x.13^(x.11*inv(x.14))
+        z     = x.13^inv((x.12*x.14))
+    
+    15. a     = one
+        k     = k.11
+        z     = k.11
+    
+    16. a     = (x.11*x.12)
+        k     = x.13^inv(x.11)
+        z     = x.13^x.12
+    
+    17. a     = (x.11*x.12)
+        k     = x.13^inv((x.11*x.14))
+        z     = x.13^(x.12*inv(x.14))
+    
+    18. a     = (x.11*x.12)
+        k     = x.13^(x.14*inv(x.11))
+        z     = x.13^(x.12*x.14)
+    
+    19. a     = (x.11*x.12)
+        k     = x.13^(x.14*inv((x.11*x.15)))
+        z     = x.13^(x.12*x.14*inv(x.15))
+    
+    20. a     = (x.11*x.12*inv(x.13))
+        k     = x.14^inv((x.11*x.15))
+        z     = x.14^(x.12*inv((x.13*x.15)))
+    
+    21. a     = (x.11*x.12*inv(x.13))
+        k     = x.14^(x.13*x.15*inv(x.11))
+        z     = x.14^(x.12*x.15)
+    
+    22. a     = (x.11*x.12*inv(x.13))
+        k     = x.14^(x.13*x.15*inv((x.11*x.16)))
+        z     = x.14^(x.12*x.15*inv(x.16))
+    
+    23. a     = (x.11*x.12*inv(x.13))
+        k     = x.14^(x.13*inv(x.11))
+        z     = x.14^x.12
+    
+    24. a     = (x.11*x.12*inv(x.13))
+        k     = x.14^(x.13*inv((x.11*x.15)))
+        z     = x.14^(x.12*inv(x.15))
+    
+    25. a     = (x.11*x.12*inv(x.13))
+        k     = x.14^(x.15*inv((x.11*x.16)))
+        z     = x.14^(x.12*x.15*inv((x.13*x.16)))
+    
+    26. a     = (x.11*x.12*inv((x.13*x.14)))
+        k     = x.15^(x.13*x.16*inv(x.11))
+        z     = x.15^(x.12*x.16*inv(x.14))
+    
+    27. a     = (x.11*x.12*inv((x.13*x.14)))
+        k     = x.15^(x.13*x.16*inv((x.11*x.17)))
+        z     = x.15^(x.12*x.16*inv((x.14*x.17)))
+    
+    28. a     = (x.11*x.12*inv((x.13*x.14)))
+        k     = x.15^(x.13*inv(x.11))
+        z     = x.15^(x.12*inv(x.14))
+    
+    29. a     = (x.11*x.12*inv((x.13*x.14)))
+        k     = x.15^(x.13*inv((x.11*x.16)))
+        z     = x.15^(x.12*inv((x.14*x.16)))
+    
+    30. a     = (x.11*inv(x.12))
+        k     = x.13^x.12
+        z     = x.13^x.11
+    
+    31. a     = (x.11*inv(x.12))
+        k     = x.13^inv(x.14)
+        z     = x.13^(x.11*inv((x.12*x.14)))
+    
+    32. a     = (x.11*inv(x.12))
+        k     = x.13^inv((x.11*x.14))
+        z     = x.13^inv((x.12*x.14))
+    
+    33. a     = (x.11*inv(x.12))
+        k     = x.13^(x.12*x.14)
+        z     = x.13^(x.11*x.14)
+    
+    34. a     = (x.11*inv(x.12))
+        k     = x.13^(x.12*x.14*inv(x.11))
+        z     = x.13^x.14
+    
+    35. a     = (x.11*inv(x.12))
+        k     = x.13^(x.12*x.14*inv((x.11*x.15)))
+        z     = x.13^(x.14*inv(x.15))
+    
+    36. a     = (x.11*inv(x.12))
+        k     = x.13^(x.12*inv(x.11))
+        z     = x.13
+    
+    37. a     = (x.11*inv(x.12))
+        k     = x.13^(x.12*inv((x.11*x.14)))
+        z     = x.13^inv(x.14)
+    
+    38. a     = (x.11*inv(x.12))
+        k     = x.13^(x.14*inv(x.15))
+        z     = x.13^(x.11*x.14*inv((x.12*x.15)))
+    
+    39. a     = (x.11*inv(x.12))
+        k     = x.13^(x.14*inv((x.11*x.15)))
+        z     = x.13^(x.14*inv((x.12*x.15)))
+    
+    40. a     = (x.11*inv((x.12*x.13)))
+        k     = x.14^x.12
+        z     = x.14^(x.11*inv(x.13))
+    
+    41. a     = (x.11*inv((x.12*x.13)))
+        k     = x.14^(x.12*x.15)
+        z     = x.14^(x.11*x.15*inv(x.13))
+    
+    42. a     = (x.11*inv((x.12*x.13)))
+        k     = x.14^(x.12*x.15*inv(x.11))
+        z     = x.14^(x.15*inv(x.13))
+    
+    43. a     = (x.11*inv((x.12*x.13)))
+        k     = x.14^(x.12*x.15*inv(x.16))
+        z     = x.14^(x.11*x.15*inv((x.13*x.16)))
+    
+    44. a     = (x.11*inv((x.12*x.13)))
+        k     = x.14^(x.12*x.15*inv((x.11*x.16)))
+        z     = x.14^(x.15*inv((x.13*x.16)))
+    
+    45. a     = (x.11*inv((x.12*x.13)))
+        k     = x.14^(x.12*inv(x.11))
+        z     = x.14^inv(x.13)
+    
+    46. a     = (x.11*inv((x.12*x.13)))
+        k     = x.14^(x.12*inv(x.15))
+        z     = x.14^(x.11*inv((x.13*x.15)))
+    
+    47. a     = (x.11*inv((x.12*x.13)))
+        k     = x.14^(x.12*inv((x.11*x.15)))
+        z     = x.14^inv((x.13*x.15))
+  */
+
+rule (modulo E) Device_1:
+   [ Fr( ~r ), Fr( ~b ), In( v2 ) ]
+  --[ AliveD( $D ) ]->
+   [
+   Out_A( $D, $V,
+          <<h(h(h(<cksum(v2), ~r>))), mac(cksum(v2), h(h(h(<cksum(v2), ~r>))))>, $D
+          >
+   ),
+   Device_1( $D, $V, ~b, h(<cksum(v2), ~r>), h(h(<cksum(v2), ~r>)),
+             h(h(h(<cksum(v2), ~r>))), g^~b, v2
+   )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Device_2:
+   [ Device_1( $D, $V, b, w0, w1, w2, k, v2 ), In( v1 ) ]
+  --[ Eq( h(v1), v2 ), AliveD( $D ) ]->
+   [
+   Device_2( $D, $V, b, w0, w1, w2, k, v2, v1 ), Out( <w1, k, mac(w2, k)> )
+   ]
+
+  /* has exactly the trivial AC variant */
+
+rule (modulo E) Device_3:
+   [ Device_2( $D, $V, b, w0, w1, w2, k, v2, v1 ), In( v0 ) ]
+  --[ Eq( h(v0), v1 ), Running( $D, $V, v0^b ), AliveD( $D ) ]->
+   [ Out( w0 ) ]
+
+  /*
+  rule (modulo AC) Device_3:
+     [ Device_2( $D, $V, b, w0, w1, w2, k, v2, v1 ), In( v0 ) ]
+    --[ Eq( h(v0), v1 ), Running( $D, $V, z ), AliveD( $D ) ]->
+     [ Out( w0 ) ]
+    variants (modulo AC)
+     1. b     = b.12
+        v0    = v0.12
+        z     = v0.12^b.12
+    
+     2. b     = x.12
+        v0    = x.14^inv(x.12)
+        z     = x.14
+    
+     3. b     = x.12
+        v0    = x.14^inv((x.12*x.15))
+        z     = x.14^inv(x.15)
+    
+     4. b     = x.12
+        v0    = x.14^(x.15*inv(x.12))
+        z     = x.14^x.15
+    
+     5. b     = x.12
+        v0    = x.14^(x.15*inv((x.12*x.16)))
+        z     = x.14^(x.15*inv(x.16))
+    
+     6. b     = b.14
+        v0    = x.12^x.13
+        z     = x.12^(x.13*b.14)
+    
+     7. b     = inv(x.12)
+        v0    = x.14^x.12
+        z     = x.14
+    
+     8. b     = inv(x.12)
+        v0    = x.14^inv(x.15)
+        z     = x.14^inv((x.12*x.15))
+    
+     9. b     = inv(x.12)
+        v0    = x.14^(x.12*x.15)
+        z     = x.14^x.15
+    
+    10. b     = inv(x.12)
+        v0    = x.14^(x.15*inv(x.16))
+        z     = x.14^(x.15*inv((x.12*x.16)))
+    
+    11. b     = inv((x.12*x.13))
+        v0    = x.15^x.12
+        z     = x.15^inv(x.13)
+    
+    12. b     = inv((x.12*x.13))
+        v0    = x.15^(x.12*x.16)
+        z     = x.15^(x.16*inv(x.13))
+    
+    13. b     = inv((x.12*x.13))
+        v0    = x.15^(x.12*x.16*inv(x.17))
+        z     = x.15^(x.16*inv((x.13*x.17)))
+    
+    14. b     = inv((x.12*x.13))
+        v0    = x.15^(x.12*inv(x.16))
+        z     = x.15^inv((x.13*x.16))
+    
+    15. b     = one
+        v0    = v0.12
+        z     = v0.12
+    
+    16. b     = (x.12*x.13)
+        v0    = x.15^inv(x.12)
+        z     = x.15^x.13
+    
+    17. b     = (x.12*x.13)
+        v0    = x.15^inv((x.12*x.16))
+        z     = x.15^(x.13*inv(x.16))
+    
+    18. b     = (x.12*x.13)
+        v0    = x.15^(x.16*inv(x.12))
+        z     = x.15^(x.13*x.16)
+    
+    19. b     = (x.12*x.13)
+        v0    = x.15^(x.16*inv((x.12*x.17)))
+        z     = x.15^(x.13*x.16*inv(x.17))
+    
+    20. b     = (x.12*x.13*inv(x.14))
+        v0    = x.16^inv((x.12*x.17))
+        z     = x.16^(x.13*inv((x.14*x.17)))
+    
+    21. b     = (x.12*x.13*inv(x.14))
+        v0    = x.16^(x.14*x.17*inv(x.12))
+        z     = x.16^(x.13*x.17)
+    
+    22. b     = (x.12*x.13*inv(x.14))
+        v0    = x.16^(x.14*x.17*inv((x.12*x.18)))
+        z     = x.16^(x.13*x.17*inv(x.18))
+    
+    23. b     = (x.12*x.13*inv(x.14))
+        v0    = x.16^(x.14*inv(x.12))
+        z     = x.16^x.13
+    
+    24. b     = (x.12*x.13*inv(x.14))
+        v0    = x.16^(x.14*inv((x.12*x.17)))
+        z     = x.16^(x.13*inv(x.17))
+    
+    25. b     = (x.12*x.13*inv(x.14))
+        v0    = x.16^(x.17*inv((x.12*x.18)))
+        z     = x.16^(x.13*x.17*inv((x.14*x.18)))
+    
+    26. b     = (x.12*x.13*inv((x.14*x.15)))
+        v0    = x.17^(x.14*x.18*inv(x.12))
+        z     = x.17^(x.13*x.18*inv(x.15))
+    
+    27. b     = (x.12*x.13*inv((x.14*x.15)))
+        v0    = x.17^(x.14*x.18*inv((x.12*x.19)))
+        z     = x.17^(x.13*x.18*inv((x.15*x.19)))
+    
+    28. b     = (x.12*x.13*inv((x.14*x.15)))
+        v0    = x.17^(x.14*inv(x.12))
+        z     = x.17^(x.13*inv(x.15))
+    
+    29. b     = (x.12*x.13*inv((x.14*x.15)))
+        v0    = x.17^(x.14*inv((x.12*x.18)))
+        z     = x.17^(x.13*inv((x.15*x.18)))
+    
+    30. b     = (x.12*inv(x.13))
+        v0    = x.15^x.13
+        z     = x.15^x.12
+    
+    31. b     = (x.12*inv(x.13))
+        v0    = x.15^inv(x.16)
+        z     = x.15^(x.12*inv((x.13*x.16)))
+    
+    32. b     = (x.12*inv(x.13))
+        v0    = x.15^inv((x.12*x.16))
+        z     = x.15^inv((x.13*x.16))
+    
+    33. b     = (x.12*inv(x.13))
+        v0    = x.15^(x.13*x.16)
+        z     = x.15^(x.12*x.16)
+    
+    34. b     = (x.12*inv(x.13))
+        v0    = x.15^(x.13*x.16*inv(x.12))
+        z     = x.15^x.16
+    
+    35. b     = (x.12*inv(x.13))
+        v0    = x.15^(x.13*x.16*inv((x.12*x.17)))
+        z     = x.15^(x.16*inv(x.17))
+    
+    36. b     = (x.12*inv(x.13))
+        v0    = x.15^(x.13*inv(x.12))
+        z     = x.15
+    
+    37. b     = (x.12*inv(x.13))
+        v0    = x.15^(x.13*inv((x.12*x.16)))
+        z     = x.15^inv(x.16)
+    
+    38. b     = (x.12*inv(x.13))
+        v0    = x.15^(x.16*inv(x.17))
+        z     = x.15^(x.12*x.16*inv((x.13*x.17)))
+    
+    39. b     = (x.12*inv(x.13))
+        v0    = x.15^(x.16*inv((x.12*x.17)))
+        z     = x.15^(x.16*inv((x.13*x.17)))
+    
+    40. b     = (x.12*inv((x.13*x.14)))
+        v0    = x.16^x.13
+        z     = x.16^(x.12*inv(x.14))
+    
+    41. b     = (x.12*inv((x.13*x.14)))
+        v0    = x.16^(x.13*x.17)
+        z     = x.16^(x.12*x.17*inv(x.14))
+    
+    42. b     = (x.12*inv((x.13*x.14)))
+        v0    = x.16^(x.13*x.17*inv(x.12))
+        z     = x.16^(x.17*inv(x.14))
+    
+    43. b     = (x.12*inv((x.13*x.14)))
+        v0    = x.16^(x.13*x.17*inv(x.18))
+        z     = x.16^(x.12*x.17*inv((x.14*x.18)))
+    
+    44. b     = (x.12*inv((x.13*x.14)))
+        v0    = x.16^(x.13*x.17*inv((x.12*x.18)))
+        z     = x.16^(x.17*inv((x.14*x.18)))
+    
+    45. b     = (x.12*inv((x.13*x.14)))
+        v0    = x.16^(x.13*inv(x.12))
+        z     = x.16^inv(x.14)
+    
+    46. b     = (x.12*inv((x.13*x.14)))
+        v0    = x.16^(x.13*inv(x.17))
+        z     = x.16^(x.12*inv((x.14*x.17)))
+    
+    47. b     = (x.12*inv((x.13*x.14)))
+        v0    = x.16^(x.13*inv((x.12*x.17)))
+        z     = x.16^inv((x.14*x.17))
+  */
+
+restriction Equality:
+  "∀ x y #i. (Eq( x, y ) @ #i) ⇒ (x = y)"
+  // safety formula
+
+restriction Inequality:
+  "∀ x #i. (Neq( x, x ) @ #i) ⇒ (⊥)"
+  // safety formula
+
+lemma secrecyV:
+  all-traces "∀ x #i. (SecretV( x ) @ #i) ⇒ (¬(∃ #j. K( x ) @ #j))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ x #i. (SecretV( x ) @ #i) ∧ ∃ #j. (K( x ) @ #j)"
+*/
+simplify
+by solve( Verifier_3( $V, $D, a, v0, v1, w2, h(w0), k ) ▶₀ #i )
+
+lemma weak_agreement:
+  all-traces
+  "∀ a b key #i.
+    (Commit( a, b, key ) @ #i) ⇒ (∃ #j. Running( b, a, key ) @ #j)"
+/*
+guarded formula characterizing all counter-examples:
+"∃ a b key #i.
+  (Commit( a, b, key ) @ #i) ∧ ∀ #j. (Running( b, a, key ) @ #j) ⇒ ⊥"
+*/
+simplify
+by solve( Verifier_3( $V, $D, a, v0, v1, w2, h(w0), k ) ▶₀ #i )
+
+lemma recent_aliveness:
+  all-traces
+  "∀ a b key #i.
+    (Commit( a, b, key ) @ #i) ⇒
+    (∃ #j #k.
+      (((AliveD( b ) @ #j) ∧ (StartV( a ) @ #k)) ∧ (#k < #j)) ∧ (#j < #i))"
+/*
+guarded formula characterizing all counter-examples:
+"∃ a b key #i.
+  (Commit( a, b, key ) @ #i)
+ ∧
+  ∀ #j #k.
+   (AliveD( b ) @ #j) ∧ (StartV( a ) @ #k) ⇒ ((¬(#k < #j)) ∨ (¬(#j < #i)))"
+*/
+simplify
+by solve( Verifier_3( $V, $D, a, v0, v1, w2, h(w0), k ) ▶₀ #i )
+
+/* All well-formedness checks were successful. */
+
+end
+
+==============================================================================
+summary of summaries:
+
+analyzed: SAKE.spthy
+
+  secrecyV (all-traces): verified (2 steps)
+  weak_agreement (all-traces): verified (2 steps)
+  recent_aliveness (all-traces): verified (2 steps)
+
+==============================================================================

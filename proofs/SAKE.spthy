@@ -1,0 +1,185 @@
+/* Modified SAKE Protocol Description used for SAGE
+
+Involved parties: verifier V, device D
+
+V:  random a
+    v0 = g^a mod p
+    v1 = h(v0)
+    v2 = h(v1)
+    c = cksum(v2)
+
+V -> D: v2
+
+D:  c = cksum(v2)
+    random r
+    w0 = h(c | r)
+    w1 = h(w0)
+    w2 = h(w1)
+    random b
+    k = g^b mod p
+
+D -> V: w2, mac(c, w2)
+
+V:  check if mac(c, w2) matches received mac
+
+V -> D: v1
+
+D:  check if v2 == h(v1)
+
+D -> V: w1, k, mac(w2, k)
+  
+V:  check if mac(w2, k) matches received mac
+    check if w2 == h(w1)
+
+V -> D: v0
+
+D:  check if v1 == h(v0)
+    sk_VD = v0^b = (g^a)^b mod p
+
+D -> V: w0
+
+V:  check if w1 == h(w0)
+    sk_VD = k^a = (g^b)^a mod p
+
+*/
+
+
+theory SAKE
+begin
+
+builtins: hashing, diffie-hellman
+functions: g/0, mac/2, cksum/1
+
+/* Channel rules for authentic channels */
+
+rule ChanOut_A:
+    [ Out_A($A,$B,x) ]
+    --[ ChanOut_A($A,$B,x) ]->
+    [ !Auth($A,x), Out(<$A,$B,x>) ]
+
+rule ChanIn_A:
+    [ !Auth($A,x), In($B) ]
+    --[ ChanIn_A($A,$B,x) ]->
+    [ In_A($A,$B,x) ]
+
+
+/* Model of protocol */
+
+rule Verifier_1:
+    let v0 = g^(~a)
+        v1 = h(v0)
+        v2 = h(v1)
+        c  = cksum(v2)
+    in
+    [ Fr(~a) ]
+  --[ Neq( $V, $D )
+    , StartV( $V )
+    ]->
+    [ Verifier_1( $V, $D, ~a, v0, v1, c )
+    , Out( v2 )
+    ]
+
+rule Verifier_2:
+    let w2 = fst( w2_msg )
+        w2_mac = snd( w2_msg )
+    in
+    [ Verifier_1( $V, $D, a, v0, v1, c )
+    , In_A( $V, $D, <w2_msg, $D> )
+    ]
+  --[ Eq(mac(c, w2), w2_mac) ]->
+    [ Verifier_2( $V, $D, a, v0, v1, w2 )
+    , Out( v1 )
+    ]
+
+rule Verifier_3:
+    let w1 = fst( w1_msg )
+        k = snd(fst( w1_msg ))
+        w1_mac = snd(snd( w1_msg ))
+    in
+    [ Verifier_2( $V, $D, a, v0, v1, w2 )
+    , In( w1_msg )
+    ]
+  --[ Eq(mac(w2, k), w1_mac)
+    , Eq(h(w1), w2)
+    ]->
+    [ Verifier_3( $V, $D, a, v0, v1, w2, w1, k )
+    , Out( v0 ) 
+    ]
+
+rule Verifier_4:
+    let sk = k^a
+    in
+    [ Verifier_3( $V, $D, a, v0, v1, w2, w1, k )
+    , In( w0 )
+    ]
+  --[ SecretV( sk )
+    , Eq(h(w0), w1)
+    , Commit( $V, $D, sk)
+    ]->
+    [  ]
+
+
+
+rule Device_1:
+    let c  = cksum(v2)
+        w0 = h(c, ~r)
+        w1 = h(w0)
+        w2 = h(w1)
+        k = g^(~b)
+    in
+    [ Fr(~r), Fr(~b)
+    , In( v2 )
+    ]
+  --[ AliveD( $D ) ]->
+    [ Out_A( $D, $V, <<w2, mac(c, w2)>, $D> )
+    , Device_1( $D, $V, ~b, w0, w1, w2, k, v2 )
+    ]
+
+rule Device_2:
+    [ Device_1( $D, $V, b, w0, w1, w2, k, v2 )
+    , In( v1 )
+    ]
+  --[ Eq(h(v1), v2)
+    , AliveD( $D )
+    ]->
+    [ Device_2( $D, $V, b, w0, w1, w2, k, v2, v1 )
+    , Out( <w1, k, mac(w2, k)> )
+    ]
+
+rule Device_3:
+    let sk = v0^b
+    in
+    [ Device_2( $D, $V, b, w0, w1, w2, k, v2, v1 )
+    , In( v0 )
+    ]
+  --[ Eq(h(v0), v1)
+    , Running( $D, $V, sk )
+    , AliveD( $D )
+    ]->
+    [ Out( w0 )
+    ]
+
+
+restriction Equality:
+  "All x y #i. Eq(x,y) @i ==> x = y"
+
+
+restriction Inequality:
+  "All x #i. Neq(x,x) @ #i ==> F"
+
+
+lemma secrecyV:
+  "All x #i. 
+    SecretV(x) @i ==> not (Ex #j. K(x)@j)"
+    
+lemma weak_agreement:
+  "All a b key #i. 
+    Commit(a,b,key) @i
+    ==> (Ex #j. Running(b,a,key) @j)"
+
+lemma recent_aliveness:
+  "All a b key #i. 
+    Commit(a,b,key) @i
+    ==> (Ex #j #k. AliveD(b) @j & StartV(a) @k & #k < #j & #j < #i)"
+
+end
