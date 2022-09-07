@@ -1,3 +1,16 @@
+## Root directory for running checksum implementation experiments
+
+### Usage
+
+Checksum implementation may work with devices of compute capability 7.0 and 7.5 but it is 
+tested only against 8.0 on A100.
+
+To verify correctness of environment setup (python and cuda dependencies) run `make clean && make CAP=80 test`.
+It will run small tests in four configurations, so output should contain `verification SUCCEED` four times among other output.
+If tests pass, see the experiments section below for running actual measurements.
+
+## Experiments
+
 ### Optimal small single-loop implementation. No self-modifying code, no inner loop.
 
 ```

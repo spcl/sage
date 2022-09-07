@@ -61,4 +61,4 @@ test: test_reference test_extracted test_patched test_generated
 
 .PHONY: clean
 clean:
-	rm -f cuda_src_cpp.cpp cuda_src_ptx.cu cuda_src.h cuda_src_ptx.cubin cuda_src_ptx_patched.cubin checksum_function_extracted.bin checksum_launcher cuda_src_ptx.sass cuda_src_ptx.sass_ctrl checksum_function_generated.bin
+	rm -f cuda_src_cpp.cpp cuda_src_ptx.cu cuda_src.h cuda_src_ptx.cubin cuda_src_ptx_patched.cubin checksum_function_extracted.bin checksum_launcher cuda_src_ptx.sass cuda_src_ptx.sass_ctrl checksum_function_generated.bin cuda_src_sass.sass

@@ -1,3 +1,14 @@
+### Usage
+
+Write 10000 bytes of random binary data into file random_output.bin.
+
+```
+nvcc race_conditions_gpu_trng.cu -o trng
+./trng random_output.bin 10000
+```
+
+### Randomness tests
+
 I made the new implementation of TRNG based on race conditions (`race_conditions_gpu_trng.cu`). 
 So far it is the best TRNG implementation we have for GPU.
 It passes almost all tests that I tried from TestU01 including diehard tests. I attached the output of the tests (`race_conditions_gpu_trng_TestU01_result.txt`).
