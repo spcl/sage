@@ -144,19 +144,11 @@ __global__ void kernel_launcher(volatile CommChannel* comm_channel) {
 int main() {
     // assume this code runs inside SGX
 
-    std::ifstream linear_in("linear.bin", std::ios::binary | std::ios::ate);
-    size_t linear_code_size = linear_in.tellg();
-    printf("Linear code size %zu\n", linear_code_size);
-    linear_in.seekg(0, std::ios::beg);
-    std::vector<uint8_t> linear_code(linear_code_size);
-    linear_in.read((char*)linear_code.data(), linear_code_size);
+    std::vector<uint8_t> linear_code = read_file<uint8_t>("linear.bin");
+    printf("Linear code size %zu\n", linear_code.size());
 
-    std::ifstream relu_in("relu.bin", std::ios::binary | std::ios::ate);
-    size_t relu_code_size = relu_in.tellg();
-    printf("Relu code size %zu\n", relu_code_size);
-    relu_in.seekg(0, std::ios::beg);
-    std::vector<uint64_t> relu_code(relu_code_size);
-    relu_in.read((char*)relu_code.data(), relu_code_size);
+    std::vector<uint8_t> relu_code = read_file<uint8_t>("relu.bin");
+    printf("Relu code size %zu\n", relu_code.size());
 
     std::vector<float> host_weight1(OUT_FEATURES1 * IN_FEATURES1);
     std::vector<float> host_bias1(OUT_FEATURES1);
@@ -202,14 +194,6 @@ int main() {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreateWithFlags(&stream, cudaStreamNonBlocking));
 
-    // copy encrypted model to device
-    CUDA_CHECK(cudaMemcpyAsync(dev_weight1, &host_weight1[0], host_weight1.size() * sizeof(float), cudaMemcpyDefault, stream));
-    CUDA_CHECK(cudaMemcpyAsync(dev_bias1, &host_bias1[0], host_bias1.size() * sizeof(float), cudaMemcpyDefault, stream));
-    CUDA_CHECK(cudaMemcpyAsync(dev_weight2, &host_weight2[0], host_weight2.size() * sizeof(float), cudaMemcpyDefault, stream));
-    CUDA_CHECK(cudaMemcpyAsync(dev_bias2, &host_bias2[0], host_bias2.size() * sizeof(float), cudaMemcpyDefault, stream));
-
-
-
     int warmup = 1;
     int repeats = 3;
     // int warmup = 0;
@@ -245,15 +229,24 @@ int main() {
     LinearArgs* dev_l2_args;
     CUDA_CHECK(cudaMallocAsync(&dev_l2_args, sizeof(LinearArgs), stream));
 
-    CUDA_CHECK(cudaMemcpyAsync(dev_l1_args, &l1_args, sizeof(LinearArgs), cudaMemcpyDefault, stream));
-    CUDA_CHECK(cudaMemcpyAsync(dev_relu_args, &relu_args, sizeof(ReluArgs), cudaMemcpyDefault, stream));
-    CUDA_CHECK(cudaMemcpyAsync(dev_l2_args, &l2_args, sizeof(LinearArgs), cudaMemcpyDefault, stream));
-
-    CUDA_CHECK(cudaMemcpyAsync(dev_linear_code, linear_code.data(), linear_code.size(), cudaMemcpyDefault, stream));
-    CUDA_CHECK(cudaMemcpyAsync(dev_relu_code, relu_code.data(), relu_code.size(), cudaMemcpyDefault, stream));
+    vcomm_channel->copy(dev_l1_args, &l1_args, sizeof(LinearArgs), 1);
+    vcomm_channel->copy(dev_relu_args, &relu_args, sizeof(ReluArgs), 1);
+    vcomm_channel->copy(dev_l2_args, &l2_args, sizeof(LinearArgs), 1);
 
     vcomm_channel->copy(dev_linear_code, linear_code.data(), linear_code.size(), 1);
     vcomm_channel->copy(dev_relu_code, relu_code.data(), relu_code.size(), 1);
+
+    fp_rand(101, host_weight1.data(), OUT_FEATURES1 * IN_FEATURES1);
+    fp_rand(102, host_bias1.data(), OUT_FEATURES1);
+    fp_rand(103, host_weight2.data(), OUT_FEATURES2 * OUT_FEATURES1);
+    fp_rand(104, host_bias2.data(), OUT_FEATURES2);
+    fp_rand(105, host_input.data(), BATCH * IN_FEATURES1);
+
+    // copy encrypted model to device
+    vcomm_channel->copy(dev_weight1, host_weight1.data(), host_weight1.size() * sizeof(float), 1);
+    vcomm_channel->copy(dev_bias1, host_bias1.data(), host_bias1.size() * sizeof(float), 1);
+    vcomm_channel->copy(dev_weight2, host_weight2.data(), host_weight2.size() * sizeof(float), 1);
+    vcomm_channel->copy(dev_bias2, host_bias2.data(), host_bias2.size() * sizeof(float), 1);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -264,7 +257,7 @@ int main() {
         auto t1 = timer::now();
 
         //printf("Host memcpy async input...\n");
-        vcomm_channel->copy(dev_input, host_input.data(), host_input.size() * sizeof(float), true);
+        vcomm_channel->copy(dev_input, host_input.data(), host_input.size() * sizeof(float), 1);
         //printf("Host memcpy async input... Done\n");
 
         //printf("Submitting kernel %" PRIx64 "(%" PRIx64 ")...\n", dev_linear_code, dev_l1_args);
@@ -278,7 +271,7 @@ int main() {
         //printf("Synchronizing... Done\n");
 
         //printf("Host memcpy async output...\n");
-        vcomm_channel->copy(host_output.data(), dev_output, host_output.size() * sizeof(float), false);
+        vcomm_channel->copy(host_output.data(), dev_output, host_output.size() * sizeof(float), 0);
         //printf("Host memcpy async output... Done\n");
 
         auto t2 = timer::now();
@@ -293,4 +286,14 @@ int main() {
     double mean, std;
     std_mean(times.data(), warmup, repeats, mean, std);
     printf("mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+
+    std::vector<float> output_ref = read_file<float>("output_ref.bin");
+    for (size_t i = 0; i < output_ref.size(); i++) {
+        if (output_ref[i] != host_output[i]) {
+            printf("Output mismatch at index %zu. Expected %lg Actual %lg\n", i, output_ref[i], host_output[i]);
+            //if (i == 10) break;
+            return;
+        }
+    }
+    printf("Output is correct\n");
 }

@@ -17,12 +17,12 @@ __device__ void linear(
     const float* input = a->input;
     float* output = a->output;
     
-    for (size_t b = 0; b < batch; b++) {
-        for (size_t j = blockIdx.x; j < out_features; j += gridDim.x) {
-            for (size_t i = threadIdx.x; i < in_features; i += blockDim.x) {
+    for (size_t b = blockIdx.x; b < batch; b += gridDim.x) {
+        for (size_t j = threadIdx.x; j < out_features; j += blockDim.x) {
+            output[b * out_features + j] = bias[j];
+            for (size_t i = 0; i < in_features; i++) {
                 output[b * out_features + j] += input[b * in_features + i] * weight[j * in_features + i];
             }
-            output[b * out_features + j] += bias[j];
         }
     }
 }
@@ -60,6 +60,7 @@ __global__ void dummy_kernel() {
 int main(int argc, char** argv) {
 
     CUDA_MALLOC_MANAGED(float, weight1, sizeof(float) * OUT_FEATURES1 * IN_FEATURES1);
+
     CUDA_MALLOC_MANAGED(float, bias1, sizeof(float) * OUT_FEATURES1);
 
     CUDA_MALLOC_MANAGED(float, weight2, sizeof(float) * OUT_FEATURES2 * OUT_FEATURES1);
@@ -99,9 +100,14 @@ int main(int argc, char** argv) {
     CUDA_CHECK(cudaOccupancyMaxPotentialBlockSize(&grid, &block, dummy_kernel));
     printf("grid %d block %d\n", grid, block);
 
-
     std::vector<float> host_input(BATCH * IN_FEATURES1);
     std::vector<float> host_output(BATCH * OUT_FEATURES2);
+
+    fp_rand(101, weight1, OUT_FEATURES1 * IN_FEATURES1);
+    fp_rand(102, bias1, OUT_FEATURES1);
+    fp_rand(103, weight2, OUT_FEATURES2 * OUT_FEATURES1);
+    fp_rand(104, bias2, OUT_FEATURES2);
+    fp_rand(105, host_input.data(), BATCH * IN_FEATURES1);
 
     std::vector<double> times;
     for (int r = 0; r < warmup + repeats; r++) {
@@ -122,4 +128,6 @@ int main(int argc, char** argv) {
     double mean, std;
     std_mean(times.data(), warmup, repeats, mean, std);
     printf("mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+
+    write_file("output_ref.bin", host_output.data(), host_output.size() * sizeof(float));
 }
