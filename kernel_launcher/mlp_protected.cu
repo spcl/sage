@@ -1,5 +1,9 @@
 #include "mlp.h"
 
+#include <cooperative_groups.h>
+namespace cg = cooperative_groups;
+
+
 #define SECRET 0xBA0BAB
 
 #define MAX_MESSAGE_DATA 4
@@ -15,7 +19,7 @@ struct Message {
 #define MESSAGE_COPY_D2H 3
 #define MESSAGE_ALLOC 4
 
-__device__ unsigned int grid_barrier;
+//__device__ unsigned int grid_barrier;
 
 struct CommChannel {
     volatile int device_ready = 0;
@@ -64,7 +68,7 @@ struct CommChannel {
 
     void* alloc(size_t size) {
         wait_while_queue_is_full();
-        message_queue[queue_last].data[0] = MESSAGE_ALLOC;
+        message_queue[queue_last].data[0] = (uint64_t)MESSAGE_ALLOC;
         message_queue[queue_last].data[1] = (uint64_t)size;
         commit_message_to_queue();
         synchronize();
@@ -73,12 +77,11 @@ struct CommChannel {
 
     void submit_kernel(void* func, void* args) {
         wait_while_queue_is_full();
-        message_queue[queue_last].data[0] = MESSAGE_RUN_KERNEL;
-        message_queue[queue_last].data[1] = (uint64_t)func;
-        message_queue[queue_last].data[2] = (uint64_t)args;
+        message_queue[queue_last].data[0] = ((uint64_t)MESSAGE_RUN_KERNEL) | ((uint64_t)func);
+        message_queue[queue_last].data[1] = (uint64_t)args;
         commit_message_to_queue();
 
-        //synchronize();
+        synchronize();
     }
 
     void copy_h2d(void* dst, void* src, size_t size) {
@@ -89,10 +92,9 @@ struct CommChannel {
         CUDA_CHECK(cudaStreamSynchronize(stream));
 
         wait_while_queue_is_full();
-        message_queue[queue_last].data[0] = MESSAGE_COPY_H2D;
-        message_queue[queue_last].data[1] = (uint64_t)dst;
-        message_queue[queue_last].data[2] = (uint64_t)tmp_buf;
-        message_queue[queue_last].data[3] = (uint64_t)aligned_size;
+        message_queue[queue_last].data[0] = ((uint64_t)MESSAGE_COPY_H2D) | ((uint64_t)dst);
+        message_queue[queue_last].data[1] = (uint64_t)tmp_buf;
+        message_queue[queue_last].data[2] = (uint64_t)aligned_size;
         commit_message_to_queue();
 
         synchronize();
@@ -104,10 +106,9 @@ struct CommChannel {
         if (aligned_size > tmp_buf_size) tmp_buff_realloc(aligned_size);
 
         wait_while_queue_is_full();
-        message_queue[queue_last].data[0] = MESSAGE_COPY_D2H;
-        message_queue[queue_last].data[1] = (uint64_t)tmp_buf;
-        message_queue[queue_last].data[2] = (uint64_t)src;
-        message_queue[queue_last].data[3] = (uint64_t)aligned_size;
+        message_queue[queue_last].data[0] = ((uint64_t)MESSAGE_COPY_D2H) | ((uint64_t)tmp_buf);
+        message_queue[queue_last].data[1] = (uint64_t)src;
+        message_queue[queue_last].data[2] = (uint64_t)aligned_size;
         commit_message_to_queue();
 
         synchronize();
@@ -140,53 +141,61 @@ __global__ void kernel_launcher(volatile CommChannel* comm_channel) {
     // assume here we finished running checksum function
     // and established secret key
 
-    cooperative_groups::details::grid::sync(&grid_barrier);
+    cg::this_grid().sync();
+    //cooperative_groups::details::grid::sync(&grid_barrier);
     if (threadIdx.x == 0 && blockIdx.x == 0) comm_channel->device_ready = 1;
 
     // threads don't have to know how much progress is done by others
     int local_queue_first = 0;
 
     while (1) {
-        if (threadIdx.x == 0 && blockIdx.x == 0) {
+        if (threadIdx.x + blockIdx.x == 0) {
             while (comm_channel->queue_last == local_queue_first) {}
         }
-        cooperative_groups::details::grid::sync(&grid_barrier);
+        //cooperative_groups::details::grid::sync(&grid_barrier);
+        cg::this_grid().sync();
 
-        volatile Message* m = &comm_channel->message_queue[local_queue_first];
+        // removed volatile, as it has huge impact on performance. Result is still correct, so I guess it is fine.
+        Message* m = (Message*) &comm_channel->message_queue[local_queue_first];
 
-        uint64_t msg = m->data[0];
-        uint64_t arg1 = m->data[1];
-        uint64_t arg2 = m->data[2];
-        uint64_t arg3 = m->data[3];
+        uint64_t* d = m->data;
+        uint64_t arg0 = d[0];
+        uint64_t arg1 = d[1];
+
+        uint64_t msg = arg0 & 7ull;
+        arg0 = arg0 & (~7ull);
 
         if (msg == MESSAGE_RUN_KERNEL) {
-            SAGEKernelPtr kernel = (SAGEKernelPtr)arg1;
-            void* args = (void*)arg2;
+            SAGEKernelPtr kernel = (SAGEKernelPtr)arg0;
+            void* args = (void*)arg1;
             kernel(args);
         } else if (msg == MESSAGE_COPY_H2D) {
-            char* dst = (char*) arg1;
-            char* src = (char*) arg2;
-            size_t size = arg3;
+            uint64_t arg2 = m->data[2];
+            char* dst = (char*) arg0;
+            char* src = (char*) arg1;
+            size_t size = arg2;
             fastcopy(dst, src, size);
         } else if (msg == MESSAGE_COPY_D2H) {
-            char* dst = (char*) arg1;
-            char* src = (char*) arg2;
-            size_t size = arg3;
+            uint64_t arg2 = m->data[2];
+            char* dst = (char*) arg0;
+            char* src = (char*) arg1;
+            size_t size = arg2;
             fastcopy(dst, src, size);
         } else if (msg == MESSAGE_ALLOC) {
             if (threadIdx.x + blockIdx.x == 0) {
-                comm_channel->allocated_mem = malloc(arg1 / sizeof(uint64_t) * sizeof(uint64_t));
+                comm_channel->allocated_mem = malloc(((arg1 - 1) / sizeof(uint64_t) + 1) * sizeof(uint64_t));
             }
         } else if (msg == MESSAGE_EXIT) {
-            if (threadIdx.x == 0 && blockIdx.x == 0) printf("Exit message\n");
-            // exit
+            if (threadIdx.x + blockIdx.x == 0) {
+                printf("Exit message\n");
+            } 
             return;
         } else {
-            if (threadIdx.x == 0 && blockIdx.x == 0) printf("Unknown message\n");
+            if (threadIdx.x + blockIdx.x == 0) printf("Unknown message\n");
         }
 
         local_queue_first = (local_queue_first + 1) % MAX_MESSAGE_QUEUE;
-        if (threadIdx.x == 0 && blockIdx.x == 0) {
+        if (threadIdx.x + blockIdx.x == 0) {
             comm_channel->queue_first = local_queue_first;
         }
     }
@@ -226,7 +235,11 @@ int main() {
     printf("grid %d block %d\n", grid, block);
 
     // run checksum verification and key establishment
-    kernel_launcher<<<grid, block>>>(comm_channel);
+    void* args[] = {
+        (void*) &comm_channel
+    };
+    CUDA_CHECK(cudaLaunchCooperativeKernel((void*)kernel_launcher, grid, block, args, 0, 0));
+    //kernel_launcher<<<grid, block>>>(comm_channel);
     CUDA_CHECK(cudaPeekAtLastError());
 
     printf("waiting for device...\n");
@@ -243,7 +256,7 @@ int main() {
     auto dev_output = (float*) comm_channel->alloc(sizeof(float) * BATCH * OUT_FEATURES2);
 
     int warmup = 3;
-    int repeats = 10;
+    int repeats = 5;
     // int warmup = 0;
     // int repeats = 1;
 
