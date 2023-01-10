@@ -110,24 +110,49 @@ int main(int argc, char** argv) {
     fp_rand(105, host_input.data(), BATCH * IN_FEATURES1);
 
     std::vector<double> times;
+    std::vector<double> times_in, times_out, times_k1, times_k2, times_k3;
     for (int r = 0; r < warmup + repeats; r++) {
         auto t1 = timer::now();
         CUDA_CHECK(cudaMemcpy(input, host_input.data(), host_input.size() * sizeof(float), cudaMemcpyDefault));
+        CUDA_CHECK(cudaStreamSynchronize(0));
+        auto t_input = timer::now();
         linear_kernel<<<grid, block>>>(l1_args);
         CUDA_CHECK(cudaPeekAtLastError());
+        CUDA_CHECK(cudaStreamSynchronize(0));
+        auto t_k1 = timer::now();
         relu_kernel<<<grid, block>>>(relu_args);
         CUDA_CHECK(cudaPeekAtLastError());
+        CUDA_CHECK(cudaStreamSynchronize(0));
+        auto t_k2 = timer::now();
         linear_kernel<<<grid, block>>>(l2_args);
         CUDA_CHECK(cudaPeekAtLastError());
+        CUDA_CHECK(cudaStreamSynchronize(0));
+        auto t_k3 = timer::now();
         CUDA_CHECK(cudaMemcpy(host_output.data(), output, host_output.size() * sizeof(float), cudaMemcpyDefault));
         CUDA_CHECK(cudaStreamSynchronize(0));
         auto t2 = timer::now();
         double s = seconds(t2 - t1);
         times.push_back(s);
+        times_in.push_back(seconds(t_input - t1));
+        times_k1.push_back(seconds(t_k1 - t_input));
+        times_k2.push_back(seconds(t_k2 - t_k1));
+        times_k3.push_back(seconds(t_k3 - t_k2));
+        times_out.push_back(seconds(t2 - t_k3));
     }
     double mean, std;
     std_mean(times.data(), warmup, repeats, mean, std);
     printf("mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+
+    std_mean(times_in.data(), warmup, repeats, mean, std);
+    printf("times_in mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    std_mean(times_k1.data(), warmup, repeats, mean, std);
+    printf("times_k1 mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    std_mean(times_k2.data(), warmup, repeats, mean, std);
+    printf("times_k2 mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    std_mean(times_k3.data(), warmup, repeats, mean, std);
+    printf("times_k3 mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    std_mean(times_out.data(), warmup, repeats, mean, std);
+    printf("times_out mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
 
     write_file("output_ref.bin", host_output.data(), host_output.size() * sizeof(float));
 }

@@ -32,10 +32,10 @@
 // #define OUT_FEATURES1 100
 // #define OUT_FEATURES2 10
 
-#define BATCH 1024
-#define IN_FEATURES1 1024
-#define OUT_FEATURES1 1024
-#define OUT_FEATURES2 1024
+#define BATCH 1024 * 32
+#define IN_FEATURES1 1024 * 1
+#define OUT_FEATURES1 1024 * 1
+#define OUT_FEATURES2 1024 * 1
 
 using timer = std::chrono::high_resolution_clock;
 inline double seconds(decltype(timer::now() - timer::now()) x) {
