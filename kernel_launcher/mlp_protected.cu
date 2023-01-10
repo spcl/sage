@@ -6,7 +6,7 @@
 #define MAX_MESSAGE_QUEUE 16
 
 struct Message {
-    volatile uint64_t data[MAX_MESSAGE_DATA];
+    uint64_t data[MAX_MESSAGE_DATA];
 };
 
 #define MESSAGE_EXIT 0
@@ -78,12 +78,13 @@ struct CommChannel {
         message_queue[queue_last].data[2] = (uint64_t)args;
         commit_message_to_queue();
 
-        synchronize();
+        //synchronize();
     }
 
     void copy_h2d(void* dst, void* src, size_t size) {
+        size_t aligned_size = ((size - 1) / sizeof(uint64_t) + 1) * sizeof(uint64_t);
         // allocate mem on device        
-        if (size > tmp_buf_size) tmp_buff_realloc(size);
+        if (aligned_size > tmp_buf_size) tmp_buff_realloc(aligned_size);
         CUDA_CHECK(cudaMemcpyAsync(tmp_buf, src, size, cudaMemcpyDefault, stream));
         CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -91,21 +92,22 @@ struct CommChannel {
         message_queue[queue_last].data[0] = MESSAGE_COPY_H2D;
         message_queue[queue_last].data[1] = (uint64_t)dst;
         message_queue[queue_last].data[2] = (uint64_t)tmp_buf;
-        message_queue[queue_last].data[3] = (uint64_t)size;
+        message_queue[queue_last].data[3] = (uint64_t)aligned_size;
         commit_message_to_queue();
 
         synchronize();
     }
 
     void copy_d2h(void* dst, void* src, size_t size) {
+        size_t aligned_size = ((size - 1) / sizeof(uint64_t) + 1) * sizeof(uint64_t);
         // allocate mem on device
-        if (size > tmp_buf_size) tmp_buff_realloc(size);
+        if (aligned_size > tmp_buf_size) tmp_buff_realloc(aligned_size);
 
         wait_while_queue_is_full();
         message_queue[queue_last].data[0] = MESSAGE_COPY_D2H;
         message_queue[queue_last].data[1] = (uint64_t)tmp_buf;
         message_queue[queue_last].data[2] = (uint64_t)src;
-        message_queue[queue_last].data[3] = (uint64_t)size;
+        message_queue[queue_last].data[3] = (uint64_t)aligned_size;
         commit_message_to_queue();
 
         synchronize();
@@ -122,6 +124,18 @@ struct CommChannel {
     }
 };
 
+__device__ void fastcopy(void* dst, void* src, size_t size) {
+    size_t base = threadIdx.x + blockDim.x * blockIdx.x;
+    size_t jump = blockDim.x * gridDim.x;
+    
+    auto dst64 = (uint64_t*)dst;
+    auto src64 = (uint64_t*)src;
+    for (size_t i = base; i < size / sizeof(uint64_t); i += jump) {
+        dst64[i] = src64[i];
+    }
+    
+}
+
 __global__ void kernel_launcher(volatile CommChannel* comm_channel) {
     // assume here we finished running checksum function
     // and established secret key
@@ -129,53 +143,52 @@ __global__ void kernel_launcher(volatile CommChannel* comm_channel) {
     cooperative_groups::details::grid::sync(&grid_barrier);
     if (threadIdx.x == 0 && blockIdx.x == 0) comm_channel->device_ready = 1;
 
+    // threads don't have to know how much progress is done by others
+    int local_queue_first = 0;
+
     while (1) {
-        cooperative_groups::details::grid::sync(&grid_barrier);
-        __threadfence_system();
         if (threadIdx.x == 0 && blockIdx.x == 0) {
-            while (comm_channel->queue_last == comm_channel->queue_first) {}
+            while (comm_channel->queue_last == local_queue_first) {}
         }
         cooperative_groups::details::grid::sync(&grid_barrier);
 
-        volatile Message* m = &comm_channel->message_queue[comm_channel->queue_first];
+        volatile Message* m = &comm_channel->message_queue[local_queue_first];
 
-        // TODO: decrypt message
+        uint64_t msg = m->data[0];
+        uint64_t arg1 = m->data[1];
+        uint64_t arg2 = m->data[2];
+        uint64_t arg3 = m->data[3];
 
-        if (m->data[0] == MESSAGE_EXIT) {
+        if (msg == MESSAGE_RUN_KERNEL) {
+            SAGEKernelPtr kernel = (SAGEKernelPtr)arg1;
+            void* args = (void*)arg2;
+            kernel(args);
+        } else if (msg == MESSAGE_COPY_H2D) {
+            char* dst = (char*) arg1;
+            char* src = (char*) arg2;
+            size_t size = arg3;
+            fastcopy(dst, src, size);
+        } else if (msg == MESSAGE_COPY_D2H) {
+            char* dst = (char*) arg1;
+            char* src = (char*) arg2;
+            size_t size = arg3;
+            fastcopy(dst, src, size);
+        } else if (msg == MESSAGE_ALLOC) {
+            if (threadIdx.x + blockIdx.x == 0) {
+                comm_channel->allocated_mem = malloc(arg1 / sizeof(uint64_t) * sizeof(uint64_t));
+            }
+        } else if (msg == MESSAGE_EXIT) {
             if (threadIdx.x == 0 && blockIdx.x == 0) printf("Exit message\n");
             // exit
             return;
-        } else if (m->data[0] == MESSAGE_RUN_KERNEL) {
-            SAGEKernelPtr kernel = (SAGEKernelPtr)m->data[1];
-            void* args = (void*)m->data[2];
-            kernel(args);
-        } else if (m->data[0] == MESSAGE_COPY_H2D) {
-            char* dst = (char*) m->data[1];
-            char* src = (char*) m->data[2];
-            size_t size = m->data[3];
-            for (size_t i = threadIdx.x + blockDim.x * blockIdx.x; i < size; i += blockDim.x * gridDim.x) {
-                dst[i] = src[i];
-            }
-        } else if (m->data[0] == MESSAGE_COPY_D2H) {
-            char* dst = (char*) m->data[1];
-            char* src = (char*) m->data[2];
-            size_t size = m->data[3];
-            for (size_t i = threadIdx.x + blockDim.x * blockIdx.x; i < size; i += blockDim.x * gridDim.x) {
-                dst[i] = src[i];
-            }
-        } else if (m->data[0] == MESSAGE_ALLOC) {
-            if (threadIdx.x + blockIdx.x == 0) {
-                comm_channel->allocated_mem = malloc(m->data[1]);
-            }
         } else {
             if (threadIdx.x == 0 && blockIdx.x == 0) printf("Unknown message\n");
         }
 
-        cooperative_groups::details::grid::sync(&grid_barrier);
+        local_queue_first = (local_queue_first + 1) % MAX_MESSAGE_QUEUE;
         if (threadIdx.x == 0 && blockIdx.x == 0) {
-            comm_channel->queue_first = (comm_channel->queue_first + 1) % MAX_MESSAGE_QUEUE;
+            comm_channel->queue_first = local_queue_first;
         }
-        cooperative_groups::details::grid::sync(&grid_barrier);
     }
 }
 
@@ -229,8 +242,8 @@ int main() {
     auto dev_internal = (float*) comm_channel->alloc(sizeof(float) * BATCH * OUT_FEATURES1);
     auto dev_output = (float*) comm_channel->alloc(sizeof(float) * BATCH * OUT_FEATURES2);
 
-    int warmup = 1;
-    int repeats = 3;
+    int warmup = 3;
+    int repeats = 10;
     // int warmup = 0;
     // int repeats = 1;
 

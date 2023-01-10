@@ -32,7 +32,7 @@
 // #define OUT_FEATURES1 100
 // #define OUT_FEATURES2 10
 
-#define BATCH 1024 * 32
+#define BATCH 1024 * 1
 #define IN_FEATURES1 1024 * 1
 #define OUT_FEATURES1 1024 * 1
 #define OUT_FEATURES2 1024 * 1
