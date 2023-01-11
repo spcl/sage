@@ -10,6 +10,7 @@
 #include <fstream>
 #include <thread>
 #include <random>
+#include <cooperative_groups.h>
 #include <cooperative_groups/details/helpers.h>
 
 
@@ -32,10 +33,10 @@
 // #define OUT_FEATURES1 100
 // #define OUT_FEATURES2 10
 
-#define BATCH 1024 * 1
-#define IN_FEATURES1 1024 * 1
-#define OUT_FEATURES1 1024 * 1
-#define OUT_FEATURES2 1024 * 1
+#define BATCH 128
+#define IN_FEATURES1 784
+#define OUT_FEATURES1 100
+#define OUT_FEATURES2 10
 
 using timer = std::chrono::high_resolution_clock;
 inline double seconds(decltype(timer::now() - timer::now()) x) {

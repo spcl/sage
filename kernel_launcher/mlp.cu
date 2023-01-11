@@ -131,7 +131,7 @@ int main(int argc, char** argv) {
     std::vector<double> times_in, times_out, times_k1, times_k2, times_k3;
     for (int r = 0; r < warmup + repeats; r++) {
         auto t1 = timer::now();
-        for (int i = 0 ; i < copy_repeats; i++) {
+        for (int i = 0 ; i < ((r < warmup) ? 1 : copy_repeats); i++) {
             CUDA_CHECK(cudaMemcpy(input, host_input.data(), host_input.size() * sizeof(float), cudaMemcpyDefault));
         }
         if (inidividual_sync) CUDA_CHECK(cudaStreamSynchronize(0));
@@ -140,7 +140,7 @@ int main(int argc, char** argv) {
         CUDA_CHECK(cudaPeekAtLastError());
         if (inidividual_sync) CUDA_CHECK(cudaStreamSynchronize(0));
         auto t_k1 = timer::now();
-        for (int i = 0 ; i < relu_repeats; i++) {
+        for (int i = 0 ; i < ((r < warmup) ? 1 : relu_repeats); i++) {
             relu_kernel<<<grid, block>>>(relu_args);
             CUDA_CHECK(cudaPeekAtLastError());
         }

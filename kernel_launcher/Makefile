@@ -15,6 +15,15 @@ test: mlp mlp_protected output_ref.bin linear.bin relu.bin
 	./mlp 0 1 1 1 1 0
 	./mlp_protected 0 1 1 1 1 0
 
+# app example overall performance: x axis batch scale, y axis runtime (stacked bars: base vs test)
+perf.txt: mlp mlp_protected output_ref.bin linear.bin relu.bin benchmark_perf.sh
+	bash benchmark_perf.sh | tee perf.txt
+
+# evaluation of overhead for copy and kernel launch
+# x axis input size, y axis runtime
+
+perf_kernel_and_copy.txt: mlp mlp_protected output_ref.bin linear.bin relu.bin perf_kernel_and_copy.sh
+	bash perf_kernel_and_copy.sh | tee perf_kernel_and_copy.txt
 
 mlp: mlp.cu mlp.h
 	nvcc mlp.cu -arch=sm_$(CAP) -rdc=true -maxrregcount 32 -o mlp

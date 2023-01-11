@@ -1,13 +1,19 @@
 #include "mlp.h"
 
-#include <cooperative_groups.h>
 namespace cg = cooperative_groups;
 
+#define NDEBUG
+
+#ifndef NDEBUG
+    #define log(...) printf(__VA_ARGS__)
+#else
+    #define log(...)
+#endif
 
 #define SECRET 0xBA0BAB
 
-#define MAX_MESSAGE_DATA 4
-#define MAX_MESSAGE_QUEUE 16
+#define MAX_MESSAGE_DATA 3
+#define MAX_MESSAGE_QUEUE 256
 
 struct Message {
     uint64_t data[MAX_MESSAGE_DATA];
@@ -49,6 +55,7 @@ struct CommChannel {
     }
 
     void wait_while_queue_is_full() {
+        __sync_synchronize();
         while ((queue_last + 1) % MAX_MESSAGE_QUEUE == queue_first) {
             // device queue is full
         }
@@ -67,11 +74,15 @@ struct CommChannel {
     }
 
     void* alloc(size_t size) {
+        log("Alloc from host...\n");
         wait_while_queue_is_full();
+        log("Alloc from host...Found spot in queue\n");
         message_queue[queue_last].data[0] = (uint64_t)MESSAGE_ALLOC;
         message_queue[queue_last].data[1] = (uint64_t)size;
         commit_message_to_queue();
+        log("Alloc from host...Commit message to queue\n");
         synchronize();
+        log("Alloc from host...Done\n");
         return allocated_mem;
     }
 
@@ -148,7 +159,7 @@ __global__ void kernel_launcher(volatile CommChannel* comm_channel) {
 
     while (1) {
         if (threadIdx.x + blockIdx.x == 0) {
-            while (comm_channel->queue_last == local_queue_first) {}
+            while (local_queue_first == comm_channel->queue_last) {}
         }
         //cooperative_groups::details::grid::sync(&grid_barrier);
         cg::this_grid().sync();
@@ -164,35 +175,39 @@ __global__ void kernel_launcher(volatile CommChannel* comm_channel) {
         arg0 = arg0 & (~7ull);
 
         if (msg == MESSAGE_RUN_KERNEL) {
+            if (threadIdx.x + blockIdx.x == 0) log("MESSAGE_RUN_KERNEL\n");
             SAGEKernelPtr kernel = (SAGEKernelPtr)arg0;
             void* args = (void*)arg1;
             kernel(args);
         } else if (msg == MESSAGE_COPY_H2D) {
+            if (threadIdx.x + blockIdx.x == 0) log("MESSAGE_COPY_H2D\n");
             uint64_t arg2 = m->data[2];
             char* dst = (char*) arg0;
             char* src = (char*) arg1;
             size_t size = arg2;
             fastcopy(dst, src, size);
         } else if (msg == MESSAGE_COPY_D2H) {
+            if (threadIdx.x + blockIdx.x == 0) log("MESSAGE_COPY_D2H\n");
             uint64_t arg2 = m->data[2];
             char* dst = (char*) arg0;
             char* src = (char*) arg1;
             size_t size = arg2;
             fastcopy(dst, src, size);
         } else if (msg == MESSAGE_ALLOC) {
+            if (threadIdx.x + blockIdx.x == 0) log("MESSAGE_ALLOC\n");
             if (threadIdx.x + blockIdx.x == 0) {
                 comm_channel->allocated_mem = malloc(((arg1 - 1) / sizeof(uint64_t) + 1) * sizeof(uint64_t));
             }
+            if (threadIdx.x + blockIdx.x == 0) log("Allocation complete\n");
         } else if (msg == MESSAGE_EXIT) {
-            if (threadIdx.x + blockIdx.x == 0) {
-                printf("Exit message\n");
-            } 
+            if (threadIdx.x + blockIdx.x == 0) log("MESSAGE_EXIT\n");
             return;
         } else {
-            if (threadIdx.x + blockIdx.x == 0) printf("Unknown message\n");
+            if (threadIdx.x + blockIdx.x == 0) log("Unknown message\n");
         }
 
         local_queue_first = (local_queue_first + 1) % MAX_MESSAGE_QUEUE;
+        cg::this_grid().sync();  // this is important, we should notify host that we are done only after all threads read message
         if (threadIdx.x + blockIdx.x == 0) {
             comm_channel->queue_first = local_queue_first;
         }
@@ -324,40 +339,40 @@ int main(int argc, char** argv) {
     comm_channel->copy_h2d(dev_weight2, host_weight2.data(), host_weight2.size() * sizeof(float));
     comm_channel->copy_h2d(dev_bias2, host_bias2.data(), host_bias2.size() * sizeof(float));
 
-    printf("Start benchmarking...\n");
+    log("Start benchmarking...\n");
 
     std::vector<double> times;
     std::vector<double> times_in, times_out, times_k1, times_k2, times_k3;
     for (int r = 0; r < warmup + repeats; r++) {
         auto t1 = timer::now();
 
-        printf("Copy input to device...\n");
-        for (int i = 0; i < copy_repeats; i++) {
+        log("Copy input to device...\n");
+        for (int i = 0; i < ((r < warmup) ? 1 : copy_repeats); i++) {
             comm_channel->copy_h2d(dev_input, host_input.data(), host_input.size() * sizeof(float));
         }
-        printf("Copy input to device...Done\n");
+        log("Copy input to device...Done\n");
         auto t_input = timer::now();
 
-        printf("Run kernels...\n");
+        log("Run kernels...\n");
         comm_channel->submit_kernel(dev_linear_code, dev_l1_args);
         if (inidividual_sync) comm_channel->synchronize();
         auto t_k1 = timer::now();
-        printf("kernel1...Done\n");
-        for (int i = 0; i < relu_repeats; i++) {
+        log("kernel1...Done\n");
+        for (int i = 0; i < ((r < warmup) ? 1 : relu_repeats); i++) {
             comm_channel->submit_kernel(dev_relu_code, dev_relu_args);
         }
         if (inidividual_sync) comm_channel->synchronize();
         auto t_k2 = timer::now();
-        printf("kernel2...Done\n");
+        log("kernel2...Done\n");
         comm_channel->submit_kernel(dev_linear_code, dev_l2_args);
         if (inidividual_sync) comm_channel->synchronize();
         auto t_k3 = timer::now();
-        printf("kernel3...Done\n");
-        printf("Run kernels...Done\n");
+        log("kernel3...Done\n");
+        log("Run kernels...Done\n");
 
-        printf("Copy output to host...\n");
+        log("Copy output to host...\n");
         comm_channel->copy_d2h(host_output.data(), dev_output, host_output.size() * sizeof(float));
-        printf("Copy output to host...Done\n");
+        log("Copy output to host...Done\n");
 
         auto t2 = timer::now();
         double s = seconds(t2 - t1);
@@ -370,9 +385,9 @@ int main(int argc, char** argv) {
         times_out.push_back(seconds(t2 - t_k3));
     }
 
-    printf("Host shutdown...\n");
+    //printf("Host shutdown...\n");
     comm_channel->shutdown();
-    printf("Host shutdown... Done\n");
+    //printf("Host shutdown... Done\n");
 
     double mean, std;
     std_mean(times.data(), warmup, repeats, mean, std);
@@ -394,8 +409,9 @@ int main(int argc, char** argv) {
         if (output_ref[i] != host_output[i]) {
             printf("Output mismatch at index %zu. Expected %lg Actual %lg\n", i, output_ref[i], host_output[i]);
             //if (i == 10) break;
-            return;
+            return 1;
         }
     }
     printf("Output is correct\n");
+    return 0;
 }
