@@ -58,6 +58,27 @@ __global__ void dummy_kernel() {
 
 
 int main(int argc, char** argv) {
+    int warmup = 3;
+    int repeats = 10;
+    int batch_scale = 1;
+    int copy_repeats = 1;
+    int relu_repeats = 1;
+    int inidividual_sync = 0;
+
+    if (argc != 7) {
+        printf("Use: %s warmup repeats batch_scale kernel_repeats relu_repeats inidividual_sync\n", argv[0]);
+        printf("Example: %s %d %d %d %d %d %d\n", argv[0], warmup, repeats, batch_scale, copy_repeats, relu_repeats, inidividual_sync);
+        return 1;
+    } else {
+        warmup = atoi(argv[1]);
+        repeats = atoi(argv[2]);
+        batch_scale = atoi(argv[3]);
+        copy_repeats = atoi(argv[4]);
+        relu_repeats = atoi(argv[5]);
+        inidividual_sync = atoi(argv[6]);
+    }
+
+    int batch = batch_scale * BATCH;
 
     CUDA_MALLOC_MANAGED(float, weight1, sizeof(float) * OUT_FEATURES1 * IN_FEATURES1);
 
@@ -66,21 +87,21 @@ int main(int argc, char** argv) {
     CUDA_MALLOC_MANAGED(float, weight2, sizeof(float) * OUT_FEATURES2 * OUT_FEATURES1);
     CUDA_MALLOC_MANAGED(float, bias2, sizeof(float) * OUT_FEATURES2);
     
-    CUDA_MALLOC(float, input, sizeof(float) * BATCH * IN_FEATURES1);
-    CUDA_MALLOC(float, internal, sizeof(float) * BATCH * OUT_FEATURES1);
-    CUDA_MALLOC(float, output, sizeof(float) * BATCH * OUT_FEATURES2);
+    CUDA_MALLOC(float, input, sizeof(float) * batch * IN_FEATURES1);
+    CUDA_MALLOC(float, internal, sizeof(float) * batch * OUT_FEATURES1);
+    CUDA_MALLOC(float, output, sizeof(float) * batch * OUT_FEATURES2);
 
     CUDA_MALLOC_MANAGED(LinearArgs, l1_args, sizeof(LinearArgs));
     l1_args->in_features = IN_FEATURES1;
     l1_args->out_features = OUT_FEATURES1;
     l1_args->weight = weight1;
     l1_args->bias = bias1;
-    l1_args->batch = BATCH;
+    l1_args->batch = batch;
     l1_args->input = input;
     l1_args->output = internal;
 
     CUDA_MALLOC_MANAGED(ReluArgs, relu_args, sizeof(ReluArgs));
-    relu_args->size = BATCH * OUT_FEATURES1;
+    relu_args->size = batch * OUT_FEATURES1;
     relu_args->input = internal;
     relu_args->output = internal;
 
@@ -89,44 +110,45 @@ int main(int argc, char** argv) {
     l2_args->out_features = OUT_FEATURES2;
     l2_args->weight = weight2;
     l2_args->bias = bias2;
-    l2_args->batch = BATCH;
+    l2_args->batch = batch;
     l2_args->input = internal;
     l2_args->output = output;
-
-    int warmup = 1;
-    int repeats = 3;
 
     int grid, block;
     CUDA_CHECK(cudaOccupancyMaxPotentialBlockSize(&grid, &block, dummy_kernel));
     printf("grid %d block %d\n", grid, block);
 
-    std::vector<float> host_input(BATCH * IN_FEATURES1);
-    std::vector<float> host_output(BATCH * OUT_FEATURES2);
+    std::vector<float> host_input(batch * IN_FEATURES1);
+    std::vector<float> host_output(batch * OUT_FEATURES2);
 
     fp_rand(101, weight1, OUT_FEATURES1 * IN_FEATURES1);
     fp_rand(102, bias1, OUT_FEATURES1);
     fp_rand(103, weight2, OUT_FEATURES2 * OUT_FEATURES1);
     fp_rand(104, bias2, OUT_FEATURES2);
-    fp_rand(105, host_input.data(), BATCH * IN_FEATURES1);
+    fp_rand(105, host_input.data(), batch * IN_FEATURES1);
 
     std::vector<double> times;
     std::vector<double> times_in, times_out, times_k1, times_k2, times_k3;
     for (int r = 0; r < warmup + repeats; r++) {
         auto t1 = timer::now();
-        CUDA_CHECK(cudaMemcpy(input, host_input.data(), host_input.size() * sizeof(float), cudaMemcpyDefault));
-        CUDA_CHECK(cudaStreamSynchronize(0));
+        for (int i = 0 ; i < copy_repeats; i++) {
+            CUDA_CHECK(cudaMemcpy(input, host_input.data(), host_input.size() * sizeof(float), cudaMemcpyDefault));
+        }
+        if (inidividual_sync) CUDA_CHECK(cudaStreamSynchronize(0));
         auto t_input = timer::now();
         linear_kernel<<<grid, block>>>(l1_args);
         CUDA_CHECK(cudaPeekAtLastError());
-        CUDA_CHECK(cudaStreamSynchronize(0));
+        if (inidividual_sync) CUDA_CHECK(cudaStreamSynchronize(0));
         auto t_k1 = timer::now();
-        relu_kernel<<<grid, block>>>(relu_args);
-        CUDA_CHECK(cudaPeekAtLastError());
-        CUDA_CHECK(cudaStreamSynchronize(0));
+        for (int i = 0 ; i < relu_repeats; i++) {
+            relu_kernel<<<grid, block>>>(relu_args);
+            CUDA_CHECK(cudaPeekAtLastError());
+        }
+        if (inidividual_sync) CUDA_CHECK(cudaStreamSynchronize(0));
         auto t_k2 = timer::now();
         linear_kernel<<<grid, block>>>(l2_args);
         CUDA_CHECK(cudaPeekAtLastError());
-        CUDA_CHECK(cudaStreamSynchronize(0));
+        if (inidividual_sync) CUDA_CHECK(cudaStreamSynchronize(0));
         auto t_k3 = timer::now();
         CUDA_CHECK(cudaMemcpy(host_output.data(), output, host_output.size() * sizeof(float), cudaMemcpyDefault));
         CUDA_CHECK(cudaStreamSynchronize(0));
@@ -141,7 +163,7 @@ int main(int argc, char** argv) {
     }
     double mean, std;
     std_mean(times.data(), warmup, repeats, mean, std);
-    printf("mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
 
     std_mean(times_in.data(), warmup, repeats, mean, std);
     printf("times_in mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);

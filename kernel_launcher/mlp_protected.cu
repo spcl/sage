@@ -80,8 +80,6 @@ struct CommChannel {
         message_queue[queue_last].data[0] = ((uint64_t)MESSAGE_RUN_KERNEL) | ((uint64_t)func);
         message_queue[queue_last].data[1] = (uint64_t)args;
         commit_message_to_queue();
-
-        synchronize();
     }
 
     void copy_h2d(void* dst, void* src, size_t size) {
@@ -201,8 +199,30 @@ __global__ void kernel_launcher(volatile CommChannel* comm_channel) {
     }
 }
 
-int main() {
+int main(int argc, char** argv) {
     // assume this code runs inside SGX
+
+    int warmup = 3;
+    int repeats = 10;
+    int batch_scale = 1;
+    int copy_repeats = 1;
+    int relu_repeats = 1;
+    int inidividual_sync = 0;
+
+    if (argc != 7) {
+        printf("Use: %s warmup repeats batch_scale kernel_repeats relu_repeats inidividual_sync\n", argv[0]);
+        printf("Example: %s %d %d %d %d %d %d\n", argv[0], warmup, repeats, batch_scale, copy_repeats, relu_repeats, inidividual_sync);
+        return 1;
+    } else {
+        warmup = atoi(argv[1]);
+        repeats = atoi(argv[2]);
+        batch_scale = atoi(argv[3]);
+        copy_repeats = atoi(argv[4]);
+        relu_repeats = atoi(argv[5]);
+        inidividual_sync = atoi(argv[6]);
+    }
+
+    int batch = batch_scale * BATCH;
 
     size_t heap_size = 4ull << 30;  // 4GB
     CUDA_CHECK(cudaDeviceSetLimit(cudaLimitMallocHeapSize, heap_size));
@@ -218,9 +238,9 @@ int main() {
     std::vector<float> host_weight2(OUT_FEATURES2 * OUT_FEATURES1);
     std::vector<float> host_bias2(OUT_FEATURES2);
 
-    std::vector<float> host_input(BATCH * IN_FEATURES1);
-    std::vector<float> host_internal(BATCH * OUT_FEATURES1);
-    std::vector<float> host_output(BATCH * OUT_FEATURES2);
+    std::vector<float> host_input(batch * IN_FEATURES1);
+    std::vector<float> host_internal(batch * OUT_FEATURES1);
+    std::vector<float> host_output(batch * OUT_FEATURES2);
 
     // create communication channel with device
     CommChannel* comm_channel;
@@ -251,26 +271,21 @@ int main() {
     auto dev_weight2 = (float*) comm_channel->alloc(sizeof(float) * OUT_FEATURES2 * OUT_FEATURES1);
     auto dev_bias2 = (float*) comm_channel->alloc(sizeof(float) * OUT_FEATURES2);
 
-    auto dev_input = (float*) comm_channel->alloc(sizeof(float) * BATCH * IN_FEATURES1);
-    auto dev_internal = (float*) comm_channel->alloc(sizeof(float) * BATCH * OUT_FEATURES1);
-    auto dev_output = (float*) comm_channel->alloc(sizeof(float) * BATCH * OUT_FEATURES2);
-
-    int warmup = 3;
-    int repeats = 5;
-    // int warmup = 0;
-    // int repeats = 1;
+    auto dev_input = (float*) comm_channel->alloc(sizeof(float) * batch * IN_FEATURES1);
+    auto dev_internal = (float*) comm_channel->alloc(sizeof(float) * batch * OUT_FEATURES1);
+    auto dev_output = (float*) comm_channel->alloc(sizeof(float) * batch * OUT_FEATURES2);
 
     LinearArgs l1_args; 
     l1_args.in_features = IN_FEATURES1;
     l1_args.out_features = OUT_FEATURES1;
     l1_args.weight = dev_weight1;
     l1_args.bias = dev_bias1;
-    l1_args.batch = BATCH;
+    l1_args.batch = batch;
     l1_args.input = dev_input;
     l1_args.output = dev_internal;
 
     ReluArgs relu_args;
-    relu_args.size = BATCH * OUT_FEATURES1;
+    relu_args.size = batch * OUT_FEATURES1;
     relu_args.input = dev_internal;
     relu_args.output = dev_internal;
 
@@ -279,7 +294,7 @@ int main() {
     l2_args.out_features = OUT_FEATURES2;
     l2_args.weight = dev_weight2;
     l2_args.bias = dev_bias2;
-    l2_args.batch = BATCH;
+    l2_args.batch = batch;
     l2_args.input = dev_internal;
     l2_args.output = dev_output;
 
@@ -301,8 +316,7 @@ int main() {
     fp_rand(102, host_bias1.data(), OUT_FEATURES1);
     fp_rand(103, host_weight2.data(), OUT_FEATURES2 * OUT_FEATURES1);
     fp_rand(104, host_bias2.data(), OUT_FEATURES2);
-    fp_rand(105, host_input.data(), BATCH * IN_FEATURES1);
-
+    fp_rand(105, host_input.data(), batch * IN_FEATURES1);
 
     // copy encrypted model to device
     comm_channel->copy_h2d(dev_weight1, host_weight1.data(), host_weight1.size() * sizeof(float));
@@ -318,18 +332,25 @@ int main() {
         auto t1 = timer::now();
 
         printf("Copy input to device...\n");
-        comm_channel->copy_h2d(dev_input, host_input.data(), host_input.size() * sizeof(float));
+        for (int i = 0; i < copy_repeats; i++) {
+            comm_channel->copy_h2d(dev_input, host_input.data(), host_input.size() * sizeof(float));
+        }
         printf("Copy input to device...Done\n");
         auto t_input = timer::now();
 
         printf("Run kernels...\n");
         comm_channel->submit_kernel(dev_linear_code, dev_l1_args);
+        if (inidividual_sync) comm_channel->synchronize();
         auto t_k1 = timer::now();
         printf("kernel1...Done\n");
-        comm_channel->submit_kernel(dev_relu_code, dev_relu_args);
+        for (int i = 0; i < relu_repeats; i++) {
+            comm_channel->submit_kernel(dev_relu_code, dev_relu_args);
+        }
+        if (inidividual_sync) comm_channel->synchronize();
         auto t_k2 = timer::now();
         printf("kernel2...Done\n");
         comm_channel->submit_kernel(dev_linear_code, dev_l2_args);
+        if (inidividual_sync) comm_channel->synchronize();
         auto t_k3 = timer::now();
         printf("kernel3...Done\n");
         printf("Run kernels...Done\n");
@@ -355,7 +376,7 @@ int main() {
 
     double mean, std;
     std_mean(times.data(), warmup, repeats, mean, std);
-    printf("mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
 
     std_mean(times_in.data(), warmup, repeats, mean, std);
     printf("times_in mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
