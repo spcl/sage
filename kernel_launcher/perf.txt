@@ -1,0 +1,231 @@
+Start run protected 0 :: args 3 10 1 1 1 0
+grid 216 block 1024
+times mean 0.29 ms std 0.01 ms
+times_in mean 0.03 ms std 0.00 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 0.25 ms std 0.00 ms
+Start run protected 1 :: args 3 10 1 1 1 0
+Linear code size 3200
+Relu code size 768
+grid 216 block 1024
+waiting for device...
+waiting for device... Done
+times mean 0.23 ms std 0.00 ms
+times_in mean 0.05 ms std 0.00 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 0.17 ms std 0.00 ms
+Output is correct
+Start run protected 0 :: args 3 10 2 1 1 0
+grid 216 block 1024
+times mean 0.28 ms std 0.00 ms
+times_in mean 0.05 ms std 0.00 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 0.23 ms std 0.00 ms
+Start run protected 1 :: args 3 10 2 1 1 0
+Linear code size 3200
+Relu code size 768
+grid 216 block 1024
+waiting for device...
+waiting for device... Done
+times mean 0.35 ms std 0.00 ms
+times_in mean 0.09 ms std 0.00 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 0.25 ms std 0.00 ms
+Output is correct
+Start run protected 0 :: args 3 10 4 1 1 0
+grid 216 block 1024
+times mean 0.45 ms std 0.00 ms
+times_in mean 0.10 ms std 0.00 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 0.34 ms std 0.00 ms
+Start run protected 1 :: args 3 10 4 1 1 0
+Linear code size 3200
+Relu code size 768
+grid 216 block 1024
+waiting for device...
+waiting for device... Done
+times mean 0.52 ms std 0.00 ms
+times_in mean 0.15 ms std 0.00 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 0.37 ms std 0.00 ms
+Output is correct
+Start run protected 0 :: args 3 10 8 1 1 0
+grid 216 block 1024
+times mean 0.85 ms std 0.01 ms
+times_in mean 0.20 ms std 0.00 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 0.64 ms std 0.00 ms
+Start run protected 1 :: args 3 10 8 1 1 0
+Linear code size 3200
+Relu code size 768
+grid 216 block 1024
+waiting for device...
+waiting for device... Done
+times mean 0.87 ms std 0.00 ms
+times_in mean 0.27 ms std 0.00 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 0.60 ms std 0.00 ms
+Output is correct
+Start run protected 0 :: args 3 10 16 1 1 0
+grid 216 block 1024
+times mean 1.50 ms std 0.02 ms
+times_in mean 0.42 ms std 0.02 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 1.07 ms std 0.00 ms
+Start run protected 1 :: args 3 10 16 1 1 0
+Linear code size 3200
+Relu code size 768
+grid 216 block 1024
+waiting for device...
+waiting for device... Done
+times mean 1.60 ms std 0.02 ms
+times_in mean 0.50 ms std 0.02 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 1.10 ms std 0.00 ms
+Output is correct
+Start run protected 0 :: args 3 10 32 1 1 0
+grid 216 block 1024
+times mean 3.10 ms std 0.04 ms
+times_in mean 1.08 ms std 0.04 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 2.00 ms std 0.00 ms
+Start run protected 1 :: args 3 10 32 1 1 0
+Linear code size 3200
+Relu code size 768
+grid 216 block 1024
+waiting for device...
+waiting for device... Done
+times mean 3.03 ms std 0.06 ms
+times_in mean 1.00 ms std 0.06 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 2.04 ms std 0.00 ms
+Output is correct
+Start run protected 0 :: args 3 10 64 1 1 0
+grid 216 block 1024
+times mean 6.43 ms std 0.03 ms
+times_in mean 2.54 ms std 0.03 ms
+times_k1 mean 0.01 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 3.88 ms std 0.00 ms
+Start run protected 1 :: args 3 10 64 1 1 0
+Linear code size 3200
+Relu code size 768
+grid 216 block 1024
+waiting for device...
+waiting for device... Done
+times mean 6.61 ms std 0.02 ms
+times_in mean 2.62 ms std 0.02 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 3.99 ms std 0.01 ms
+Output is correct
+Start run protected 0 :: args 3 10 128 1 1 0
+grid 216 block 1024
+times mean 19.32 ms std 0.02 ms
+times_in mean 5.44 ms std 0.02 ms
+times_k1 mean 0.01 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 13.86 ms std 0.01 ms
+Start run protected 1 :: args 3 10 128 1 1 0
+Linear code size 3200
+Relu code size 768
+grid 216 block 1024
+waiting for device...
+waiting for device... Done
+times mean 13.40 ms std 0.02 ms
+times_in mean 5.55 ms std 0.02 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 7.85 ms std 0.01 ms
+Output is correct
+Start run protected 0 :: args 3 10 256 1 1 0
+grid 216 block 1024
+times mean 31.30 ms std 5.90 ms
+times_in mean 10.16 ms std 0.03 ms
+times_k1 mean 0.01 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 21.13 ms std 5.88 ms
+Start run protected 1 :: args 3 10 256 1 1 0
+Linear code size 3200
+Relu code size 768
+grid 216 block 1024
+waiting for device...
+waiting for device... Done
+times mean 26.13 ms std 0.04 ms
+times_in mean 10.59 ms std 0.03 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 15.54 ms std 0.01 ms
+Output is correct
+Start run protected 0 :: args 3 10 512 1 1 0
+grid 216 block 1024
+times mean 53.65 ms std 4.45 ms
+times_in mean 20.51 ms std 0.04 ms
+times_k1 mean 0.01 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 33.13 ms std 4.45 ms
+Start run protected 1 :: args 3 10 512 1 1 0
+Linear code size 3200
+Relu code size 768
+grid 216 block 1024
+waiting for device...
+waiting for device... Done
+times mean 53.23 ms std 0.03 ms
+times_in mean 21.54 ms std 0.04 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 31.69 ms std 0.02 ms
+Output is correct
+Start run protected 0 :: args 3 10 1024 1 1 0
+grid 216 block 1024
+times mean 106.04 ms std 0.05 ms
+times_in mean 41.65 ms std 0.04 ms
+times_k1 mean 0.01 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 64.37 ms std 0.03 ms
+Start run protected 1 :: args 3 10 1024 1 1 0
+Linear code size 3200
+Relu code size 768
+grid 216 block 1024
+waiting for device...
+waiting for device... Done
+times mean 108.36 ms std 0.06 ms
+times_in mean 43.16 ms std 0.09 ms
+times_k1 mean 0.00 ms std 0.00 ms
+times_k2 mean 0.00 ms std 0.00 ms
+times_k3 mean 0.00 ms std 0.00 ms
+times_out mean 65.20 ms std 0.04 ms
+Output is correct
