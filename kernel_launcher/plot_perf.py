@@ -14,7 +14,7 @@ with open('perf.txt', 'r') as f:
     for l in f.readlines():
         match = re.search('Start run protected (.+) :: args (.+) (.+) (.+) (.+) (.+) (.+)', l)
         if match:
-            version = 'Protected' if int(match.group(1)) else 'Base'
+            version = 'SAGE' if int(match.group(1)) else 'Baseline'
             batch = int(match.group(4)) * 128
     
         match = re.search('times mean (.+) ms std (.+) ms', l)

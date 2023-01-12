@@ -15,7 +15,7 @@ with open('perf_kernel_and_copy.txt', 'r') as f:
     for l in f.readlines():
         match = re.search('Start run protected (.+) :: args (.+) (.+) (.+) (.+) (.+) (.+)', l)
         if match:
-            version = 'Protected' if int(match.group(1)) else 'Base'
+            version = 'SAGE' if int(match.group(1)) else 'Baseline'
             batch = int(match.group(4)) * 128
             copy_repeats = int(match.group(5))
             relu_repeats = int(match.group(6))
@@ -46,11 +46,11 @@ df = pd.DataFrame.from_dict(entries)
 
 print(df)
 
-x_copy = np.array(df[(df.Operation == 'Copy') & (df.Version == 'Protected')].Batch)
+x_copy = np.array(df[(df.Operation == 'Copy') & (df.Version == 'SAGE')].Batch)
 # convert to MB
 x_copy = x_copy * 784 * 4 / 1e9
 
-x_kernel = np.array(df[(df.Operation == 'Kernel launch') & (df.Version == 'Protected')].Batch)
+x_kernel = np.array(df[(df.Operation == 'Kernel launch') & (df.Version == 'SAGE')].Batch)
 
 val = {}
 for op, ver in itertools.product(df.Operation.unique(), df.Version.unique()):
@@ -59,8 +59,8 @@ for op, ver in itertools.product(df.Operation.unique(), df.Version.unique()):
 
 diff = {}
 for op in df.Operation.unique():
-    diff[(op, 'mean')] = val[(op, 'Protected', 'mean')] - val[(op, 'Base', 'mean')]
-    diff[(op, 'std')] = val[(op, 'Protected', 'std')] + val[(op, 'Base', 'std')]
+    diff[(op, 'mean')] = val[(op, 'SAGE', 'mean')] - val[(op, 'Baseline', 'mean')]
+    diff[(op, 'std')] = val[(op, 'SAGE', 'std')] + val[(op, 'Baseline', 'std')]
 
 k_lin = scipy.stats.linregress(x_kernel, diff['Kernel launch', 'mean'])
 c_lin = scipy.stats.linregress(x_copy, diff['Copy', 'mean'])
@@ -82,12 +82,12 @@ ax[0].legend()
 
 #ax[1].errorbar(x_kernel, diff['Kernel launch', 'mean'], yerr=diff['Kernel launch', 'std'])
 
-# ax[1].errorbar(x_kernel, val[('Kernel launch', 'Protected', 'mean')], yerr=diff['Kernel launch', 'std'], label='Protected')
-# ax[1].errorbar(x_kernel, val[('Kernel launch', 'Base', 'mean')], yerr=diff['Kernel launch', 'std'], label='Base')
+# ax[1].errorbar(x_kernel, val[('Kernel launch', 'SAGE', 'mean')], yerr=diff['Kernel launch', 'std'], label='SAGE')
+# ax[1].errorbar(x_kernel, val[('Kernel launch', 'Baseline', 'mean')], yerr=diff['Kernel launch', 'std'], label='Baseline')
 
-kernel_time = val[('Kernel launch', 'Base', 'mean')]
-kernel_std = val[('Kernel launch', 'Base', 'std')]
-launch_percent = 100 * diff['Kernel launch', 'mean'] / val[('Kernel launch', 'Base', 'mean')]
+kernel_time = val[('Kernel launch', 'Baseline', 'mean')]
+kernel_std = val[('Kernel launch', 'Baseline', 'std')]
+launch_percent = 100 * diff['Kernel launch', 'mean'] / val[('Kernel launch', 'Baseline', 'mean')]
 
 ax[1].errorbar(kernel_time, launch_percent, marker='.')
 
