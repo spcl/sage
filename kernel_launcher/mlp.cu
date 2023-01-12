@@ -62,19 +62,19 @@ int main(int argc, char** argv) {
     int repeats = 10;
     int batch_scale = 1;
     int copy_repeats = 1;
-    int relu_repeats = 1;
+    int r_linear_repeats = 1;
     int inidividual_sync = 0;
 
     if (argc != 7) {
-        printf("Use: %s warmup repeats batch_scale kernel_repeats relu_repeats inidividual_sync\n", argv[0]);
-        printf("Example: %s %d %d %d %d %d %d\n", argv[0], warmup, repeats, batch_scale, copy_repeats, relu_repeats, inidividual_sync);
+        printf("Use: %s warmup repeats batch_scale kernel_repeats r_linear_repeats inidividual_sync\n", argv[0]);
+        printf("Example: %s %d %d %d %d %d %d\n", argv[0], warmup, repeats, batch_scale, copy_repeats, r_linear_repeats, inidividual_sync);
         return 1;
     } else {
         warmup = atoi(argv[1]);
         repeats = atoi(argv[2]);
         batch_scale = atoi(argv[3]);
         copy_repeats = atoi(argv[4]);
-        relu_repeats = atoi(argv[5]);
+        r_linear_repeats = atoi(argv[5]);
         inidividual_sync = atoi(argv[6]);
     }
 
@@ -131,19 +131,19 @@ int main(int argc, char** argv) {
     std::vector<double> times_in, times_out, times_k1, times_k2, times_k3;
     for (int r = 0; r < warmup + repeats; r++) {
         auto t1 = timer::now();
-        for (int i = 0 ; i < ((r < warmup) ? 1 : copy_repeats); i++) {
+        for (int i = 0 ; i < copy_repeats; i++) {
             CUDA_CHECK(cudaMemcpy(input, host_input.data(), host_input.size() * sizeof(float), cudaMemcpyDefault));
         }
         if (inidividual_sync) CUDA_CHECK(cudaStreamSynchronize(0));
         auto t_input = timer::now();
-        linear_kernel<<<grid, block>>>(l1_args);
+        for (int i = 0 ; i < r_linear_repeats; i++) {
+            linear_kernel<<<grid, block>>>(l1_args);
+        }
         CUDA_CHECK(cudaPeekAtLastError());
         if (inidividual_sync) CUDA_CHECK(cudaStreamSynchronize(0));
         auto t_k1 = timer::now();
-        for (int i = 0 ; i < ((r < warmup) ? 1 : relu_repeats); i++) {
-            relu_kernel<<<grid, block>>>(relu_args);
-            CUDA_CHECK(cudaPeekAtLastError());
-        }
+        relu_kernel<<<grid, block>>>(relu_args);
+        CUDA_CHECK(cudaPeekAtLastError());
         if (inidividual_sync) CUDA_CHECK(cudaStreamSynchronize(0));
         auto t_k2 = timer::now();
         linear_kernel<<<grid, block>>>(l2_args);
@@ -163,18 +163,18 @@ int main(int argc, char** argv) {
     }
     double mean, std;
     std_mean(times.data(), warmup, repeats, mean, std);
-    printf("times mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times mean %.4f ms std %.4f ms\n", mean * 1e3, std * 1e3);
 
     std_mean(times_in.data(), warmup, repeats, mean, std);
-    printf("times_in mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times_in mean %.4f ms std %.4f ms\n", mean * 1e3, std * 1e3);
     std_mean(times_k1.data(), warmup, repeats, mean, std);
-    printf("times_k1 mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times_k1 mean %.4f ms std %.4f ms\n", mean * 1e3, std * 1e3);
     std_mean(times_k2.data(), warmup, repeats, mean, std);
-    printf("times_k2 mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times_k2 mean %.4f ms std %.4f ms\n", mean * 1e3, std * 1e3);
     std_mean(times_k3.data(), warmup, repeats, mean, std);
-    printf("times_k3 mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times_k3 mean %.4f ms std %.4f ms\n", mean * 1e3, std * 1e3);
     std_mean(times_out.data(), warmup, repeats, mean, std);
-    printf("times_out mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times_out mean %.4f ms std %.4f ms\n", mean * 1e3, std * 1e3);
 
     write_file("output_ref.bin", host_output.data(), host_output.size() * sizeof(float));
 }

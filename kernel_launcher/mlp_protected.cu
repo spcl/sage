@@ -13,7 +13,7 @@ namespace cg = cooperative_groups;
 #define SECRET 0xBA0BAB
 
 #define MAX_MESSAGE_DATA 3
-#define MAX_MESSAGE_QUEUE 256
+#define MAX_MESSAGE_QUEUE (16 * 16)
 
 struct Message {
     uint64_t data[MAX_MESSAGE_DATA];
@@ -221,25 +221,25 @@ int main(int argc, char** argv) {
     int repeats = 10;
     int batch_scale = 1;
     int copy_repeats = 1;
-    int relu_repeats = 1;
+    int r_linear_repeats = 1;
     int inidividual_sync = 0;
 
     if (argc != 7) {
-        printf("Use: %s warmup repeats batch_scale kernel_repeats relu_repeats inidividual_sync\n", argv[0]);
-        printf("Example: %s %d %d %d %d %d %d\n", argv[0], warmup, repeats, batch_scale, copy_repeats, relu_repeats, inidividual_sync);
+        printf("Use: %s warmup repeats batch_scale kernel_repeats r_linear_repeats inidividual_sync\n", argv[0]);
+        printf("Example: %s %d %d %d %d %d %d\n", argv[0], warmup, repeats, batch_scale, copy_repeats, r_linear_repeats, inidividual_sync);
         return 1;
     } else {
         warmup = atoi(argv[1]);
         repeats = atoi(argv[2]);
         batch_scale = atoi(argv[3]);
         copy_repeats = atoi(argv[4]);
-        relu_repeats = atoi(argv[5]);
+        r_linear_repeats = atoi(argv[5]);
         inidividual_sync = atoi(argv[6]);
     }
 
     int batch = batch_scale * BATCH;
 
-    size_t heap_size = 4ull << 30;  // 4GB
+    size_t heap_size = 8ull << 30;  // 8GB
     CUDA_CHECK(cudaDeviceSetLimit(cudaLimitMallocHeapSize, heap_size));
 
     std::vector<uint8_t> linear_code = read_file<uint8_t>("linear.bin");
@@ -347,20 +347,19 @@ int main(int argc, char** argv) {
         auto t1 = timer::now();
 
         log("Copy input to device...\n");
-        for (int i = 0; i < ((r < warmup) ? 1 : copy_repeats); i++) {
+        for (int i = 0; i < copy_repeats; i++) {
             comm_channel->copy_h2d(dev_input, host_input.data(), host_input.size() * sizeof(float));
         }
         log("Copy input to device...Done\n");
-        auto t_input = timer::now();
-
         log("Run kernels...\n");
-        comm_channel->submit_kernel(dev_linear_code, dev_l1_args);
+        auto t_input = timer::now();
+        for (int i = 0 ; i < r_linear_repeats; i++) {
+            comm_channel->submit_kernel(dev_linear_code, dev_l1_args);
+        }
         if (inidividual_sync) comm_channel->synchronize();
         auto t_k1 = timer::now();
         log("kernel1...Done\n");
-        for (int i = 0; i < ((r < warmup) ? 1 : relu_repeats); i++) {
-            comm_channel->submit_kernel(dev_relu_code, dev_relu_args);
-        }
+        comm_channel->submit_kernel(dev_relu_code, dev_relu_args);
         if (inidividual_sync) comm_channel->synchronize();
         auto t_k2 = timer::now();
         log("kernel2...Done\n");
@@ -391,18 +390,18 @@ int main(int argc, char** argv) {
 
     double mean, std;
     std_mean(times.data(), warmup, repeats, mean, std);
-    printf("times mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times mean %.4f ms std %.4f ms\n", mean * 1e3, std * 1e3);
 
     std_mean(times_in.data(), warmup, repeats, mean, std);
-    printf("times_in mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times_in mean %.4f ms std %.4f ms\n", mean * 1e3, std * 1e3);
     std_mean(times_k1.data(), warmup, repeats, mean, std);
-    printf("times_k1 mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times_k1 mean %.4f ms std %.4f ms\n", mean * 1e3, std * 1e3);
     std_mean(times_k2.data(), warmup, repeats, mean, std);
-    printf("times_k2 mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times_k2 mean %.4f ms std %.4f ms\n", mean * 1e3, std * 1e3);
     std_mean(times_k3.data(), warmup, repeats, mean, std);
-    printf("times_k3 mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times_k3 mean %.4f ms std %.4f ms\n", mean * 1e3, std * 1e3);
     std_mean(times_out.data(), warmup, repeats, mean, std);
-    printf("times_out mean %.2f ms std %.2f ms\n", mean * 1e3, std * 1e3);
+    printf("times_out mean %.4f ms std %.4f ms\n", mean * 1e3, std * 1e3);
 
     std::vector<float> output_ref = read_file<float>("output_ref.bin");
     for (size_t i = 0; i < output_ref.size(); i++) {
