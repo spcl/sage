@@ -1,4 +1,4 @@
-CAP = 75
+CAP = $(shell nvidia-smi --query-gpu=compute_cap --format=csv,noheader | head -n 1 | sed 's/\.//g')
 GENARGS = --with_adversarial_nop
 
 FUNCNAME = .text._Z12checksum_ptx5State
