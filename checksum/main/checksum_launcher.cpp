@@ -10,7 +10,8 @@
 #include <random>
 #include <chrono>
 #include <unistd.h>
-
+#pragma GCC target("rdrnd")
+#include <immintrin.h>
 #include "cuda_src.h"
 
 using timer = std::chrono::high_resolution_clock;
@@ -126,7 +127,13 @@ int main(int argc, char** argv) {
     // Initialize state
 
     std::mt19937 prng;
-    prng.seed(7654);
+    int result = 0;
+    unsigned int seed;
+    
+    while (result == 0)
+        result = _rdrand32_step(&seed);
+    
+    prng.seed(seed);
 
     printf("State:");
     State state;
