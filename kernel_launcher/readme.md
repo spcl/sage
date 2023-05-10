@@ -8,3 +8,4 @@ A list of targets can be found in [Makefile](Makefile).
 
 * Run `make base` to build a base example with default protocol and no protection.
 * Run `make prot` to build a secure implementation.
+* Run `make perf.txt perf_kernel_and_copy.txt` to collect data for evaluation of overheads of copies and kernel launches. It may take around 15 minutes to complete. Use `python plot_overhead.py` and `python plot_perf.py` to build plots using collected data (plotting requires common libraries to be available in current python installation: `conda install python==3.9 matplotlib seaborn pandas numpy`).

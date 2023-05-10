@@ -3,7 +3,7 @@
 ### Usage
 
 Checksum implementation may work with devices of compute capability 7.0 and 7.5 but it is 
-tested only against 8.0 on A100.
+tested only against 8.0 on A100 with CUDA 11.8, Python 3.9..
 
 To verify correctness of environment setup (python and cuda dependencies) run `make clean && make CAP=80 test`.
 It will run small tests in four configurations, so output should contain `verification SUCCEED` four times among other output.
@@ -15,8 +15,10 @@ If tests pass, see the experiments section below for running actual measurements
 
 ```
 make clean && make CAP=80 GENARGS= test_generated && make run_generated
-while true; do make run_generated | grep Runtime; done
+for run in {1..10}; do make run_generated | grep Runtime; done
 ```
+
+Expected output:
 
 ```
 Runtime: 0.493969 s
@@ -37,8 +39,10 @@ Runtime: 0.493974 s
 
 ```
 make clean && make CAP=80 GENARGS=--with_adversarial_nop test_generated && make run_generated
-while true; do make run_generated | grep Runtime; done
+for run in {1..10}; do make run_generated | grep Runtime; done
 ```
+
+Expected output:
 
 ```
 Runtime: 0.496967 s
@@ -58,7 +62,9 @@ Runtime: 0.496825 s
 ### Large implementation with self-modifying code and inner loop to hide its impact.
 
 ```
-make clean && make CAP=80 GENARGS="--with_self_modification --num_iters 1000 --with_inner_loop --num_inner_iters 5000 --num_shifts 90" test_generated && make run_generated
+make clean && make CAP=80 GENARGS="--with_self_modification --num_iters 1000 --with_inner_loop --num_inner_iters 5000 --num_shifts 100" test_generated && make run_generated
 ```
 
 Observed 100% of peak performance. Unfortunately adversarial NOP is not detectable with this approach.
+
+> **Warning** Self-modifying code is relying on undocumented instruction cache invalidations and sometimes can fail the test, e.g., when checksum code aligned differently in memory. In this case, try increasing `num_shifts` to make the test pass.

@@ -1,15 +1,20 @@
 # SAGE: Software-based Attestation for GPU Execution
 
-This repository contains:
-- the proof-of-concept implementation of SAGE
-- tools to assist the reverse engineering of the Ampere architecture
-- tamarin proofs for the modified version of SAKE
+## This repository contains
 
-# Paper
+- the proof-of-concept implementation of SAGE
+  - checksum benchmark [checksum/main/readme.md](checksum/main/readme.md)
+  - integration with SGX [SGX/README.md](SGX/README.md)
+  - communication protocol between CPU and GPU [kernel_launcher/readme.md](kernel_launcher/readme.md)
+- race-condition-based true random number generation on GPU: [trng/readme.md](trng/readme.md)
+- tamarin proofs for the modified version of SAKE: [proofs/README.md](proofs/README.md)
+- tools to assist the reverse engineering of the Ampere architecture: [checksum/instr_decode/readme.md](checksum/instr_decode/readme.md)
+
+## Paper
 
 https://arxiv.org/abs/2209.03125
 
-# Citation
+## Citation
 
 ```
 @misc{https://doi.org/10.48550/arxiv.2209.03125,
