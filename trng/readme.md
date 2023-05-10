@@ -36,7 +36,7 @@ The only test that fails (Gap) seems to require a larger chunk of random data th
 * Download and compile TestU01 https://github.com/umontreal-simul/TestU01-2009/. 
 * Compile TestU01 runner `gcc testu01.c -o t01` 
 * Run it `./t01 random.bin | tee output.txt`
-* Postprocess output `sed -n '/Summary/,/End/p' output.txt`. Output should match [race_conditions_gpu_trng_TestU01_result.txt](trng/race_conditions_gpu_trng_TestU01_result.txt).
+* Postprocess output `sed -n '/Summary/,/End/p' output.txt`. Output should match [race_conditions_gpu_trng_TestU01_result.txt](race_conditions_gpu_trng_TestU01_result.txt).
 
 ##### Run in container
 
