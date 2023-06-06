@@ -8,6 +8,8 @@
 
 It is designed to perform evaluation of checksum runtime with different configurations of checksum implementation (number of instructions, presence of "adversary NOP") and obtain the achieved % of peak performance. The timings obtained by running experiments from that directory correspond to the table "Evaluation of checksum implementations" from the paper.
 
+> **Warning** This benchmark was only used to obtain specific values presented in the table; however, the aggregation of those values into the particular layout was done manually.
+
 #### Integration with SGX [SGX/README.md](SGX/README.md)
 
 This is proof of concept implementation of compilation pipeline to illustrate the build process of SAGE as SGX application.
