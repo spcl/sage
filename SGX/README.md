@@ -4,7 +4,7 @@ This directory contains an example of building pipeline that integrates SGX and 
 
 > **Warning** The code in this directory only demonstrates the integration with the build system. Check [kernel_launcher](/kernel_launcher/) for actual implementation of the user communication protocol between CPU and GPU. Check directory [checksum](/checksum/) for implementation of the self-verifying checksum function.
 
-### Installation instructions
+### Prerequisites installation instructions (~30-60 min)
 
 1) Install SGX SDK (this may take around 30-60 minutes depending on the hardware). Follow installation instructions here (default configuration, Ubuntu 20.04):
 https://github.com/intel/linux-sgx
@@ -15,7 +15,7 @@ sudo apt update
 sudo apt install nvidia-cuda-toolkit
 ```
 
-### Compilation instructions
+### SAGE Compilation instructions (~5 min)
 
 Before compiling make sure that the environment variables for SGX SDK are set:
 ```
@@ -32,7 +32,7 @@ Run using:
 ./app
 ```
 
-### End-to-end build inside container
+### End-to-end build inside container (~30-60 min)
 
 ```
 podman run -it --rm -v ./:/SGX -w /SGX --security-opt label=disable docker.io/nvidia/cuda:11.8.0-devel-ubuntu20.04 /bin/bash -c "\

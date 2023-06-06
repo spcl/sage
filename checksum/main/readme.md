@@ -11,6 +11,8 @@ If tests pass, see the experiments section below for running actual measurements
 
 ## Experiments
 
+Expected time: ~5 min.
+
 ### Optimal small single-loop implementation. No self-modifying code, no inner loop.
 
 ```
