@@ -7,6 +7,8 @@ import seaborn as sns
 import numpy as np
 import itertools
 
+matplotlib.rcParams['pdf.fonttype'] = 42
+matplotlib.rcParams['ps.fonttype'] = 42
 
 entries = []
 
